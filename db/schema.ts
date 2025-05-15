@@ -197,6 +197,10 @@ export const leads = pgTable("leads", {
   status: leadStatusEnum("status").default("nuevo").notNull(),
   expectedPurchaseTimeframe: timeframeEnum("expected_purchase_timeframe"),
   budget: text("budget"),
+  // Campaign from facebook
+  campaignId: uuid("campaign_id").references(() => campaigns.id, {
+    onDelete: "set null",
+  }),
   // Lead messages/interactions
   lastContactedAt: timestamp("last_contacted_at", { mode: "date" }),
   lastMessageAt: timestamp("last_message_at", { mode: "date" }),

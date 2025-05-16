@@ -126,6 +126,8 @@ export const leadRouter = createTRPCRouter({
             lastContactedAt: leads.lastContactedAt,
             lastMessageAt: leads.lastMessageAt,
             nextFollowUpDate: leads.nextFollowUpDate,
+            createdAt: leads.createdAt,
+            updatedAt: leads.updatedAt,
           })
           .from(leads)
           .leftJoin(campaigns, eq(leads.campaignId, campaigns.id))

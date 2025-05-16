@@ -39,7 +39,7 @@ export function LeadsView({
   const displayPagination = isLoading ? initialPagination : pagination;
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header with create button */}
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Lead Management</h1>
@@ -58,12 +58,7 @@ export function LeadsView({
       />
 
       {/* Leads table */}
-      <LeadsTable
-        leads={displayLeads}
-        isLoading={isLoading}
-        currentFilters={filters}
-        updateFilters={updateFilters}
-      />
+      <LeadsTable leads={displayLeads} isLoading={isLoading} />
 
       {/* Pagination */}
       <Pagination pagination={displayPagination} goToPage={goToPage} />

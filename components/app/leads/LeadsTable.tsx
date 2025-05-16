@@ -23,6 +23,7 @@ import {
 import {
   daysSinceLastContact,
   daysUntilNextFollowUp,
+  formatTimeframe,
   getLeadStatusIndicator,
   getStatusBadgeClass,
   getTimeframeColor,
@@ -35,36 +36,6 @@ type LeadsTableProps = {
 };
 
 export function LeadsTable({ leads, isLoading = false }: LeadsTableProps) {
-  // Function to format timeframe text for display
-  const formatTimeframe = (timeframe: string | null | undefined) => {
-    if (!timeframe) return "No definido";
-
-    switch (timeframe) {
-      case "inmediato":
-        return "Inmediato";
-      case "esta_semana":
-        return "Esta semana";
-      case "proxima_semana":
-        return "Próxima semana";
-      case "dos_semanas":
-        return "En dos semanas";
-      case "un_mes":
-        return "En un mes";
-      case "1-3 meses":
-        return "1-3 meses";
-      case "3-6 meses":
-        return "3-6 meses";
-      case "6+ meses":
-        return "Más de 6 meses";
-      case "indefinido":
-        return "Indefinido";
-      default:
-        return timeframe
-          .replace(/_/g, " ")
-          .replace(/\b\w/g, (c) => c.toUpperCase());
-    }
-  };
-
   if (isLoading) {
     return <div className="p-8 text-center">Loading leads...</div>;
   }

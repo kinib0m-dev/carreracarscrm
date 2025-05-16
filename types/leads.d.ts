@@ -3,7 +3,7 @@ import { leadStatusEnum, leadTypeEnum, timeframeEnum } from "@/db/schema";
 type Tag = {
   id: string;
   name: string;
-  color: string;
+  color: string | null;
   description: string | null;
   createdAt: Date;
 };

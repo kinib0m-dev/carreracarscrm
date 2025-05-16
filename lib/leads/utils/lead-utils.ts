@@ -143,3 +143,70 @@ function getCategoryColor(category: string): string {
       return "gray";
   }
 }
+
+/**
+ * Format a date string or Date object to a readable format
+ */
+export function formatDate(date: string | Date | null): string {
+  if (!date) return "N/A";
+
+  const dateObj = typeof date === "string" ? new Date(date) : date;
+
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(dateObj);
+}
+
+/**
+ * Format a number as currency
+ */
+export function formatCurrency(
+  amount: number | string | null | undefined
+): string {
+  if (amount === null || amount === undefined) return "N/A";
+
+  // Convert string to number if needed
+  const numericAmount = typeof amount === "string" ? Number(amount) : amount;
+
+  // Check if conversion resulted in a valid number
+  if (isNaN(numericAmount)) return "N/A";
+
+  return new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(numericAmount);
+}
+
+// Function to format timeframe text for display
+export const formatTimeframe = (timeframe: string | null | undefined) => {
+  if (!timeframe) return "No definido";
+
+  switch (timeframe) {
+    case "inmediato":
+      return "Inmediato";
+    case "esta_semana":
+      return "Esta semana";
+    case "proxima_semana":
+      return "Próxima semana";
+    case "dos_semanas":
+      return "En dos semanas";
+    case "un_mes":
+      return "En un mes";
+    case "1-3 meses":
+      return "1-3 meses";
+    case "3-6 meses":
+      return "3-6 meses";
+    case "6+ meses":
+      return "Más de 6 meses";
+    case "indefinido":
+      return "Indefinido";
+    default:
+      return timeframe
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+};

@@ -32,3 +32,60 @@ type LeadWithTagsAndCampaign = {
   // Tags
   tags: Tag[];
 };
+
+type LeadTasks = {
+  id: string;
+  leadId: string;
+  status: "pendiente" | "progreso" | "completado" | "cancelado";
+  priority: "baja" | "media" | "alta" | "urgente";
+  title: string;
+  description?: string | undefined;
+  dueDate?: string | undefined;
+};
+type LeadTaskPriority = "baja" | "media" | "alta" | "urgente";
+type LeadTaskStatus = "pendiente" | "progreso" | "completado" | "cancelado";
+
+type ExtendedLeadTasks = {
+  id: string;
+  leadId: string;
+  userId: string;
+  title: string;
+  description: string | null;
+  priority: "baja" | "media" | "alta" | "urgente";
+  status: "pendiente" | "progreso" | "completado" | "cancelado";
+  dueDate: Date | null;
+  completedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type ExtendedLeadTasksString = {
+  id: string;
+  leadId: string;
+  userId: string;
+  title: string;
+  description: string | null;
+  priority: "baja" | "media" | "alta" | "urgente";
+  status: "pendiente" | "progreso" | "completado" | "cancelado";
+  dueDate: string | null;
+  completedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type LeadNotes = {
+  id: string;
+  leadId: string;
+  userId: string;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type TagEntity = {
+  id: string;
+  name: string;
+  color: string | null;
+  description: string | null;
+  createdAt: Date;
+};

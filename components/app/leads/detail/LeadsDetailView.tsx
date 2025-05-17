@@ -32,6 +32,7 @@ import {
   Info,
   Mail,
   Phone,
+  PlusCircle,
   Tag,
   Trash2,
   User,
@@ -49,6 +50,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { NotesPreview } from "../notes/NotesPreview";
+import { TasksPreview } from "../tasks/TaskPreview";
+import { LeadTagsManagement } from "../tags/LeadTagsManagement";
 
 interface LeadsDetailViewProps {
   lead: LeadWithTagsAndCampaign;
@@ -384,23 +388,6 @@ export function LeadsDetailView({ lead }: LeadsDetailViewProps) {
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="tags">Tags</TabsTrigger>
         </TabsList>
-      </Tabs>
-    </div>
-  );
-}
-/*
-
-        <TabsContent value="emails">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-semibold">Emails</h3>
-          </div>
-
-          <LeadSendEmail
-            leadId={lead.id}
-            leadName={lead.name}
-            leadEmail={lead.email}
-          />
-        </TabsContent>
 
         <TabsContent value="notes">
           <div className="flex justify-between items-center mb-4">
@@ -443,4 +430,23 @@ export function LeadsDetailView({ lead }: LeadsDetailViewProps) {
 
           <LeadTagsManagement leadId={lead.id} />
         </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+/*
+
+        <TabsContent value="emails">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-semibold">Emails</h3>
+          </div>
+
+          <LeadSendEmail
+            leadId={lead.id}
+            leadName={lead.name}
+            leadEmail={lead.email}
+          />
+        </TabsContent>
+
+        
 */

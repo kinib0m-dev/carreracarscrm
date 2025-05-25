@@ -462,3 +462,31 @@ export const carStock = pgTable("car_stock", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// -------------------------------------- BOT DOCS --------------------------------------
+export const documentCategoryEnum = pgEnum("document_category", [
+  "company_profile",
+  "pricing",
+  "financing",
+  "faq",
+  "service",
+  "maintenance",
+  "legal",
+  "product_info",
+  "other",
+]);
+
+// Bot Documents table for storing text content for embedding
+export const botDocuments = pgTable("bot_documents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  category: documentCategoryEnum("category").default("other").notNull(),
+  content: text("content").notNull(),
+  fileName: text("file_name"),
+  embedding: vector(768)("vector"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

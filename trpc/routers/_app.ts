@@ -8,6 +8,7 @@ import { emailRouter } from "@/lib/email/server/procedures";
 import { stockRouter } from "@/lib/stock/server/procedures";
 import { botDocsRouter } from "@/lib/bot-docs/server/procedures";
 import { playgroundRouter } from "@/lib/playground/server/procedures";
+import { dashboardRouter } from "@/lib/dashboard/server/procedures";
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -24,6 +25,8 @@ export const appRouter = createTRPCRouter({
   botDocs: botDocsRouter,
   // PLayground
   playground: playgroundRouter,
+  // Dashboard
+  dashboard: dashboardRouter,
 });
 
 // export type definition of API

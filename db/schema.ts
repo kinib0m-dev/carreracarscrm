@@ -7,6 +7,9 @@ import {
   uuid,
   boolean,
   pgEnum,
+  customType,
+  date,
+  numeric,
 } from "drizzle-orm/pg-core";
 import type { AdapterAccountType } from "next-auth/adapters";
 
@@ -374,3 +377,88 @@ export const emailHistoryLeads = pgTable(
     pk: primaryKey({ columns: [t.historyId, t.leadId] }),
   })
 );
+// -------------------------------------- VECTOR TYPE FOR EMBEDDINGS --------------------------------------
+const vector = (dimensions: number) =>
+  customType<{
+    data: number[];
+    driverData: string;
+  }>({
+    dataType() {
+      return `vector(${dimensions})`;
+    },
+    toDriver(value) {
+      // Format as Postgres array string for pgvector: e.g. '[0.1, 0.2, ...]'
+      return `[${value.join(",")}]`;
+    },
+    fromDriver(value) {
+      // Convert PG string back to array
+      return value.slice(1, -1).split(",").map(Number);
+    },
+  });
+
+// -------------------------------------- STOCK --------------------------------------
+export const carTypeEnum = pgEnum("car_type", [
+  "sedan",
+  "suv",
+  "hatchback",
+  "coupe",
+  "descapotable",
+  "monovolumen",
+  "pickup",
+  "electrico",
+  "hibrido",
+  "lujo",
+  "deportivo",
+  "furgoneta_carga",
+  "furgoneta_pasajeros",
+  "furgoneta_mixta",
+  "otro",
+]);
+
+// Stock items table for cars
+export const carStock = pgTable("car_stock", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  // Identificación
+  vin: text("vin"),
+  // Información básica
+  marca: text("marca"),
+  modelo: text("modelo"),
+  version: text("version"),
+  motor: text("motor"),
+  carroceria: text("carroceria"),
+  puertas: integer("puertas"),
+  transmision: text("transmision"),
+  etiqueta: text("etiqueta"),
+  fecha_version: date("fecha_version"),
+  color: text("color"),
+  kilometros: integer("kilometros"),
+  matricula: text("matricula"),
+  type: carTypeEnum("type").default("sedan").notNull(),
+  description: text("description"),
+  imageUrl: text("image_url").array(),
+  url: text("url"),
+  notes: text("notes"),
+  // Comerciante / procedencia
+  comercial: text("comercial"),
+  sociedad: text("sociedad"),
+  tienda: text("tienda"),
+  provincia: text("provincia"),
+  // Precios y financiación
+  precio_compra: numeric("precio_compra", { precision: 10, scale: 2 }),
+  precio_venta: numeric("precio_venta", { precision: 10, scale: 2 }),
+  precio_financiado: numeric("precio_financiado", { precision: 10, scale: 2 }),
+  impuestos_incluidos: boolean("impuestos_incluidos").default(true),
+  impuesto: numeric("impuesto", { precision: 5, scale: 2 }),
+  // Estado
+  garantia: text("garantia"),
+  vendido: boolean("vendido").default(false),
+  gastos_adicionales: numeric("gastos_adicionales", {
+    precision: 10,
+    scale: 2,
+  }),
+  // Embeddings
+  embedding: vector(768)("vector"),
+  // Created & Updated
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

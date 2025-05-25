@@ -1,4 +1,3 @@
-// hooks/use-lead-notes.ts
 import { useState } from "react";
 import { trpc } from "@/trpc/client";
 import { toast } from "sonner";

@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   timestamp,
   pgTable,
@@ -489,4 +490,70 @@ export const botDocuments = pgTable("bot_documents", {
   embedding: vector(768)("vector"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// -------------------------------------- PLAYGROUND --------------------------------------
+export function pgvector(tableName: string, columnName: string) {
+  return sql`1 - (${tableName}.${columnName} <=> ${columnName})`;
+}
+
+// Test leads table for playground simulation
+export const testLeads = pgTable("test_leads", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  // Basic info
+  name: text("name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  type: leadTypeEnum("type"),
+  // Lead status and progression
+  status: leadStatusEnum("status").default("nuevo").notNull(),
+  expectedPurchaseTimeframe: timeframeEnum("expected_purchase_timeframe"),
+  budget: text("budget"),
+  // Bot collected preferences
+  preferredVehicleType: text("preferred_vehicle_type"),
+  preferredBrand: text("preferred_brand"),
+  preferredFuelType: text("preferred_fuel_type"), // gasolina, diesel, hibrido, electrico
+  maxKilometers: integer("max_kilometers"),
+  minYear: integer("min_year"),
+  maxYear: integer("max_year"),
+  hasTradeIn: boolean("has_trade_in"),
+  needsFinancing: boolean("needs_financing"),
+  isFirstTimeBuyer: boolean("is_first_time_buyer"),
+  urgencyLevel: integer("urgency_level"), // 1-5 scale
+  // Test specific fields
+  testUserId: text("test_user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  // Tracking
+  lastContactedAt: timestamp("last_contacted_at", { mode: "date" }),
+  lastMessageAt: timestamp("last_message_at", { mode: "date" }),
+  nextFollowUpDate: timestamp("next_follow_up_date", { mode: "date" }),
+  // Created & Updated
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const botConversations = pgTable("bot_conversations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  testLeadId: uuid("test_lead_id").references(() => testLeads.id, {
+    onDelete: "cascade",
+  }),
+  isCompleted: boolean("is_completed").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const botMessages = pgTable("bot_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  conversationId: uuid("conversation_id")
+    .notNull()
+    .references(() => botConversations.id, { onDelete: "cascade" }),
+  role: text("role").notNull(), // 'user' or 'assistant'
+  content: text("content").notNull(),
+  embedding: vector(768)("vector"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });

@@ -53,6 +53,7 @@ import {
 import { NotesPreview } from "../notes/NotesPreview";
 import { TasksPreview } from "../tasks/TaskPreview";
 import { LeadTagsManagement } from "../tags/LeadTagsManagement";
+import { LeadSendEmail } from "../email/LeadsSendEmail";
 
 interface LeadsDetailViewProps {
   lead: LeadWithTagsAndCampaign;
@@ -389,6 +390,18 @@ export function LeadsDetailView({ lead }: LeadsDetailViewProps) {
           <TabsTrigger value="tags">Tags</TabsTrigger>
         </TabsList>
 
+        <TabsContent value="emails">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-semibold">Emails</h3>
+          </div>
+
+          <LeadSendEmail
+            leadId={lead.id}
+            leadName={lead.name}
+            leadEmail={lead.email}
+          />
+        </TabsContent>
+
         <TabsContent value="notes">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-xl font-semibold">Notes</h3>
@@ -434,19 +447,3 @@ export function LeadsDetailView({ lead }: LeadsDetailViewProps) {
     </div>
   );
 }
-/*
-
-        <TabsContent value="emails">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-semibold">Emails</h3>
-          </div>
-
-          <LeadSendEmail
-            leadId={lead.id}
-            leadName={lead.name}
-            leadEmail={lead.email}
-          />
-        </TabsContent>
-
-        
-*/

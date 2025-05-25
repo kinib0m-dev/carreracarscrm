@@ -313,3 +313,64 @@ export const webhookLogs = pgTable("webhook_logs", {
   processedAt: timestamp("processed_at", { mode: "date" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// -------------------------------------- EMAILS --------------------------------------
+export const emailTemplates = pgTable("email_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  subject: text("subject").notNull(),
+  content: text("content").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Junction table for email templates to lead statuses
+export const emailTemplateStatuses = pgTable(
+  "email_template_statuses",
+  {
+    templateId: uuid("template_id")
+      .notNull()
+      .references(() => emailTemplates.id, { onDelete: "cascade" }),
+    status: leadStatusEnum("status").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.templateId, t.status] }),
+  })
+);
+
+// Table for tracking sent emails
+export const emailHistory = pgTable("email_history", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  templateId: uuid("template_id")
+    .notNull()
+    .references(() => emailTemplates.id, { onDelete: "cascade" }),
+  subject: text("subject").notNull(),
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+  sentCount: integer("sent_count").notNull(),
+});
+
+// Junction table for email history to leads
+export const emailHistoryLeads = pgTable(
+  "email_history_leads",
+  {
+    historyId: uuid("history_id")
+      .notNull()
+      .references(() => emailHistory.id, { onDelete: "cascade" }),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "cascade" }),
+    sentAt: timestamp("sent_at").defaultNow().notNull(),
+    status: text("status").default("sent").notNull(), // sent, delivered, opened, clicked, etc.
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.historyId, t.leadId] }),
+  })
+);

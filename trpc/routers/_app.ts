@@ -4,6 +4,7 @@ import { leadRouter } from "@/lib/leads/server/procedures";
 import { leadNoteRouter } from "@/lib/leads/server/notes-procedures";
 import { leadTaskRouter } from "@/lib/leads/server/task-procedures";
 import { leadTagsRouter } from "@/lib/leads/server/tags-procedures";
+import { emailRouter } from "@/lib/email/server/procedures";
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -12,6 +13,8 @@ export const appRouter = createTRPCRouter({
   leadNote: leadNoteRouter,
   leadTask: leadTaskRouter,
   leadTags: leadTagsRouter,
+  // Emails,
+  emails: emailRouter,
 });
 
 // export type definition of API

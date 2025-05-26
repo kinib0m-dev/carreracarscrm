@@ -112,7 +112,7 @@ export function Pagination({ pagination, goToPage }: PaginationProps) {
         </Button>
 
         {/* Page numbers */}
-        <div className="flex items-center">
+        <div className="flex items-center gap-1">
           {getPageNumbers().map((pageNumber) => (
             <Button
               key={pageNumber}

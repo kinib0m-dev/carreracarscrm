@@ -65,11 +65,6 @@ export function ManualCarStockForm() {
       imageUrl: [],
       url: undefined,
       notes: undefined,
-      // Comerciante / procedencia
-      comercial: undefined,
-      sociedad: undefined,
-      tienda: undefined,
-      provincia: undefined,
       // Precios y financiación
       precio_compra: undefined,
       precio_venta: undefined,
@@ -77,9 +72,7 @@ export function ManualCarStockForm() {
       impuestos_incluidos: true,
       impuesto: undefined,
       // Estado
-      garantia: undefined,
       vendido: false,
-      gastos_adicionales: undefined,
     },
   });
 
@@ -438,83 +431,6 @@ export function ManualCarStockForm() {
               </div>
             </div>
 
-            {/* Commercial Information Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Commercial Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="comercial"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Commercial Contact</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Commercial contact name"
-                          {...field}
-                          value={field.value || ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="provincia"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Province</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Province/region"
-                          {...field}
-                          value={field.value || ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="sociedad"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Company</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Company/society name"
-                          {...field}
-                          value={field.value || ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="tienda"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Store</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Store/dealership name"
-                          {...field}
-                          value={field.value || ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-
             {/* Pricing Information Section */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium">
@@ -591,23 +507,6 @@ export function ManualCarStockForm() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="gastos_adicionales"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Additional Costs</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Additional costs"
-                          {...field}
-                          value={field.value || ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </div>
               <div className="flex items-center space-x-2">
                 <FormField
@@ -637,23 +536,6 @@ export function ManualCarStockForm() {
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="garantia"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Warranty</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Warranty information"
-                          {...field}
-                          value={field.value || ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
                 <div className="flex items-center space-x-2">
                   <FormField
                     control={form.control}

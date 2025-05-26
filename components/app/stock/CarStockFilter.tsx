@@ -32,8 +32,6 @@ export function CarStockFilters({
   const [marcaInput, setMarcaInput] = useState(filters.marca || "");
   const [modeloInput, setModeloInput] = useState(filters.modelo || "");
   const [colorInput, setColorInput] = useState(filters.color || "");
-  const [provinciaInput, setProvinciaInput] = useState(filters.provincia || "");
-  const [comercialInput, setComercialInput] = useState(filters.comercial || "");
   const [precioMinInput, setPrecioMinInput] = useState(
     filters.precio_min || ""
   );
@@ -90,28 +88,6 @@ export function CarStockFilters({
 
     return () => clearTimeout(timer);
   }, [colorInput, filters.color, updateFilters]);
-
-  // Set up the debounce effect for provincia
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (provinciaInput !== filters.provincia) {
-        updateFilters({ provincia: provinciaInput || undefined, page: 1 });
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [provinciaInput, filters.provincia, updateFilters]);
-
-  // Set up the debounce effect for comercial
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (comercialInput !== filters.comercial) {
-        updateFilters({ comercial: comercialInput || undefined, page: 1 });
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [comercialInput, filters.comercial, updateFilters]);
 
   // Set up the debounce effect for price filters
   useEffect(() => {
@@ -179,8 +155,6 @@ export function CarStockFilters({
     setMarcaInput("");
     setModeloInput("");
     setColorInput("");
-    setProvinciaInput("");
-    setComercialInput("");
     setPrecioMinInput("");
     setPrecioMaxInput("");
     setKilometrosMinInput("");
@@ -343,22 +317,6 @@ export function CarStockFilters({
               placeholder="Color"
               value={colorInput}
               onChange={(e) => setColorInput(e.target.value)}
-              className="w-full"
-            />
-
-            {/* Provincia filter */}
-            <Input
-              placeholder="Provincia"
-              value={provinciaInput}
-              onChange={(e) => setProvinciaInput(e.target.value)}
-              className="w-full"
-            />
-
-            {/* Comercial filter */}
-            <Input
-              placeholder="Comercial"
-              value={comercialInput}
-              onChange={(e) => setComercialInput(e.target.value)}
               className="w-full"
             />
 

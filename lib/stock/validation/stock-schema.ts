@@ -3,7 +3,6 @@ import { z } from "zod";
 export const createCarStockSchema = z.object({
   // Identificación
   vin: z.string().optional(),
-
   // Información básica
   marca: z.string().optional(),
   modelo: z.string().optional(),
@@ -17,7 +16,6 @@ export const createCarStockSchema = z.object({
   color: z.string().optional(),
   kilometros: z.number().int().optional(),
   matricula: z.string().optional(),
-
   // Existing fields
   type: z
     .enum([
@@ -32,9 +30,9 @@ export const createCarStockSchema = z.object({
       "hibrido",
       "lujo",
       "deportivo",
-      "furgoneta_carga",
-      "furgoneta_pasajeros",
-      "furgoneta_mixta",
+      "furgoneta_pequena",
+      "furgoneta_mediana",
+      "furgoneta_grande",
       "otro",
     ])
     .default("sedan"),
@@ -42,34 +40,22 @@ export const createCarStockSchema = z.object({
   imageUrl: z.array(z.string()).default([]),
   url: z.string().optional(),
   notes: z.string().optional(),
-
-  // Comerciante / procedencia
-  comercial: z.string().optional(),
-  sociedad: z.string().optional(),
-  tienda: z.string().optional(),
-  provincia: z.string().optional(),
-
   // Precios y financiación
   precio_compra: z.string().optional(), // Using string for decimal handling
   precio_venta: z.string().optional(),
   precio_financiado: z.string().optional(),
   impuestos_incluidos: z.boolean().default(true),
   impuesto: z.string().optional(), // Using string for decimal handling
-
   // Estado
-  garantia: z.string().optional(),
   vendido: z.boolean().default(false),
-  gastos_adicionales: z.string().optional(), // Using string for decimal handling
 });
 
 export type CreateCarStockSchema = z.infer<typeof createCarStockSchema>;
 
 export const updateCarStockSchema = z.object({
   id: z.string().uuid(),
-
   // Identificación
   vin: z.string().optional(),
-
   // Información básica
   marca: z.string().optional(),
   modelo: z.string().optional(),
@@ -83,7 +69,6 @@ export const updateCarStockSchema = z.object({
   color: z.string().optional(),
   kilometros: z.number().int().optional(),
   matricula: z.string().optional(),
-
   // Existing fields
   type: z.enum([
     "sedan",
@@ -97,33 +82,23 @@ export const updateCarStockSchema = z.object({
     "hibrido",
     "lujo",
     "deportivo",
-    "furgoneta_carga",
-    "furgoneta_pasajeros",
-    "furgoneta_mixta",
+    "furgoneta_pequena",
+    "furgoneta_mediana",
+    "furgoneta_grande",
     "otro",
   ]),
   description: z.string().optional(),
   imageUrl: z.array(z.string()),
   url: z.string().optional(),
   notes: z.string().optional(),
-
-  // Comerciante / procedencia
-  comercial: z.string().optional(),
-  sociedad: z.string().optional(),
-  tienda: z.string().optional(),
-  provincia: z.string().optional(),
-
   // Precios y financiación
   precio_compra: z.string().optional(),
   precio_venta: z.string().optional(),
   precio_financiado: z.string().optional(),
   impuestos_incluidos: z.boolean().default(true),
   impuesto: z.string().optional(),
-
   // Estado
-  garantia: z.string().optional(),
   vendido: z.boolean().default(false),
-  gastos_adicionales: z.string().optional(),
 });
 
 export type UpdateCarStockSchema = z.infer<typeof updateCarStockSchema>;
@@ -142,9 +117,9 @@ export const filterCarStockSchema = z.object({
       "hibrido",
       "lujo",
       "deportivo",
-      "furgoneta_carga",
-      "furgoneta_pasajeros",
-      "furgoneta_mixta",
+      "furgoneta_pequena",
+      "furgoneta_mediana",
+      "furgoneta_grande",
       "otro",
     ])
     .optional(),
@@ -152,8 +127,6 @@ export const filterCarStockSchema = z.object({
   marca: z.string().optional(),
   modelo: z.string().optional(),
   color: z.string().optional(),
-  provincia: z.string().optional(),
-  comercial: z.string().optional(),
   vendido: z.boolean().optional(),
   precio_min: z.string().optional(),
   precio_max: z.string().optional(),

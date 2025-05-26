@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "@/trpc/client";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -28,6 +28,14 @@ export function useEmailTemplateList(
   const [filters, setFilters] =
     useState<FilterEmailTemplateSchema>(defaultFilters);
 
+  // Keep track of the last successful pagination to avoid resets during loading
+  const [lastPagination, setLastPagination] = useState({
+    page: defaultFilters.page,
+    limit: defaultFilters.limit,
+    totalCount: 0,
+    totalPages: 0,
+  });
+
   // Fetch templates with trpc
   const { data, isLoading, isError, error, refetch } =
     trpc.emails.list.useQuery(filters, {
@@ -36,21 +44,75 @@ export function useEmailTemplateList(
 
   // Computed properties
   const templates = data?.templates || [];
+
+  // Update last pagination when we get new data using useEffect
+  useEffect(() => {
+    if (data?.pagination) {
+      setLastPagination(data.pagination);
+    }
+  }, [data?.pagination]);
+
+  // Use current data pagination if available, otherwise use last known pagination with current filter page
   const pagination = data?.pagination || {
-    page: 1,
-    limit: 10,
-    totalCount: 0,
-    totalPages: 0,
+    ...lastPagination,
+    page: filters.page, // Always reflect the current filter page
   };
 
   // Update filters
   const updateFilters = (newFilters: Partial<FilterEmailTemplateSchema>) => {
-    setFilters((prevFilters) => ({
-      ...prevFilters,
-      ...newFilters,
-      // Reset to page 1 when filters change (unless page is explicitly specified)
-      page: newFilters.page || 1,
-    }));
+    setFilters((prevFilters) => {
+      // Check if the new filters would actually change anything
+      // Treat undefined values as "no change" for comparison
+      const wouldChange = Object.keys(newFilters).some((key) => {
+        const typedKey = key as keyof FilterEmailTemplateSchema;
+        const newValue = newFilters[typedKey];
+        const currentValue = prevFilters[typedKey];
+
+        // If new value is undefined, it's not a real change
+        if (newValue === undefined) {
+          return false;
+        }
+
+        return newValue !== currentValue;
+      });
+
+      // Special check: if this looks like a filters reset call (search: undefined + page: 1),
+      // and we're not actually changing the search, ignore it completely
+      const isFilterResetCall =
+        Object.keys(newFilters).length === 2 &&
+        newFilters.search === undefined &&
+        newFilters.page === 1 &&
+        (prevFilters.search === undefined || prevFilters.search === null);
+
+      if (!wouldChange || isFilterResetCall) {
+        return prevFilters; // No change, return the same object
+      }
+
+      // Only reset to page 1 if we're actually changing non-page filters
+      const nonPageKeys = Object.keys(newFilters).filter(
+        (key) => key !== "page"
+      ) as (keyof FilterEmailTemplateSchema)[];
+      const hasRealFilterChanges = nonPageKeys.some(
+        (key) =>
+          newFilters[key] !== undefined && newFilters[key] !== prevFilters[key]
+      );
+
+      const shouldResetPage =
+        hasRealFilterChanges && newFilters.page === undefined;
+
+      const updated = {
+        ...prevFilters,
+        ...newFilters,
+        page:
+          newFilters.page !== undefined
+            ? newFilters.page
+            : shouldResetPage
+              ? 1
+              : prevFilters.page,
+      };
+
+      return updated;
+    });
   };
 
   // Reset filters
@@ -60,7 +122,8 @@ export function useEmailTemplateList(
 
   // Handle pagination
   const goToPage = (page: number) => {
-    if (page < 1 || page > pagination.totalPages) return;
+    if (page < 1 || (pagination.totalPages > 0 && page > pagination.totalPages))
+      return;
     updateFilters({ page });
   };
 

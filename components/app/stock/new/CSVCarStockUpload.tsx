@@ -15,9 +15,9 @@ import { Badge } from "@/components/ui/badge";
 import { Upload, File, Check, AlertCircle, Loader2, Info } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { carTypeEnum } from "@/db/schema";
 import { useCreateCarStock } from "@/lib/stock/hooks/use-stock";
 import { CreateCarStockSchema } from "@/lib/stock/validation/stock-schema";
+import { assignCarDataValue } from "@/lib/stock/utils/stock-utlis";
 
 type CSVCarStockData = Record<string, string>;
 
@@ -85,6 +85,9 @@ const VALID_CAR_TYPES = [
   "otro",
 ];
 
+// Define a type for the possible field value types
+type FieldValue = string | number | Date | boolean | string[] | undefined;
+
 export function CSVCarStockUpload() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
@@ -120,9 +123,6 @@ export function CSVCarStockUpload() {
     setWarnings([]);
     parseCSV(selectedFile);
   };
-
-  // Define a type for the possible field value types
-  type FieldValue = string | number | Date | boolean | string[] | undefined;
 
   const convertValueToType = (value: string, fieldName: string): FieldValue => {
     if (!value || value.trim() === "") return undefined;
@@ -481,73 +481,12 @@ export function CSVCarStockUpload() {
             vendido: false,
           };
 
-          // Add any additional fields
+          // Use the helper function to assign values safely
           Object.entries(headerIndexes).forEach(([field, index]) => {
             if (index < values.length) {
               const value = convertValueToType(values[index], field);
-
               if (value !== undefined && validateField(field, value)) {
-                // Use type-safe assignment for known fields
-                switch (field) {
-                  case "vin":
-                  case "marca":
-                  case "modelo":
-                  case "version":
-                  case "motor":
-                  case "carroceria":
-                  case "transmision":
-                  case "etiqueta":
-                  case "color":
-                  case "matricula":
-                  case "description":
-                  case "url":
-                  case "notes":
-                  case "comercial":
-                  case "sociedad":
-                  case "tienda":
-                  case "provincia":
-                  case "precio_compra":
-                  case "precio_venta":
-                  case "precio_financiado":
-                  case "impuesto":
-                  case "garantia":
-                  case "gastos_adicionales":
-                    if (typeof value === "string") {
-                      carData[field] = value;
-                    }
-                    break;
-                  case "puertas":
-                  case "kilometros":
-                    if (typeof value === "number") {
-                      carData[field] = value;
-                    }
-                    break;
-                  case "fecha_version":
-                    if (typeof value === "string") {
-                      carData[field] = value;
-                    }
-                    break;
-                  case "type":
-                    if (
-                      typeof value === "string" &&
-                      VALID_CAR_TYPES.includes(value)
-                    ) {
-                      carData.type =
-                        value as (typeof carTypeEnum.enumValues)[number];
-                    }
-                    break;
-                  case "imageUrl":
-                    if (Array.isArray(value)) {
-                      carData.imageUrl = value;
-                    }
-                    break;
-                  case "impuestos_incluidos":
-                  case "vendido":
-                    if (typeof value === "boolean") {
-                      carData[field] = value;
-                    }
-                    break;
-                }
+                assignCarDataValue(carData, field, value);
               }
             }
           });

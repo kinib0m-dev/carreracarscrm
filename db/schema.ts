@@ -410,9 +410,9 @@ export const carTypeEnum = pgEnum("car_type", [
   "hibrido",
   "lujo",
   "deportivo",
-  "furgoneta_carga",
-  "furgoneta_pasajeros",
-  "furgoneta_mixta",
+  "furgoneta_pequena",
+  "furgoneta_mediana",
+  "furgoneta_grande",
   "otro",
 ]);
 
@@ -439,11 +439,6 @@ export const carStock = pgTable("car_stock", {
   imageUrl: text("image_url").array(),
   url: text("url"),
   notes: text("notes"),
-  // Comerciante / procedencia
-  comercial: text("comercial"),
-  sociedad: text("sociedad"),
-  tienda: text("tienda"),
-  provincia: text("provincia"),
   // Precios y financiación
   precio_compra: numeric("precio_compra", { precision: 10, scale: 2 }),
   precio_venta: numeric("precio_venta", { precision: 10, scale: 2 }),
@@ -451,12 +446,7 @@ export const carStock = pgTable("car_stock", {
   impuestos_incluidos: boolean("impuestos_incluidos").default(true),
   impuesto: numeric("impuesto", { precision: 5, scale: 2 }),
   // Estado
-  garantia: text("garantia"),
   vendido: boolean("vendido").default(false),
-  gastos_adicionales: numeric("gastos_adicionales", {
-    precision: 10,
-    scale: 2,
-  }),
   // Embeddings
   embedding: vector(768)("vector"),
   // Created & Updated

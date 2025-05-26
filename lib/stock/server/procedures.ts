@@ -37,9 +37,6 @@ export const stockRouter = createTRPCRouter({
             ${input.precio_compra ? `Precio de Compra: ${input.precio_compra}` : ""}
             ${input.description ? `Description: ${input.description}` : ""}
             ${input.notes ? `Notes: ${input.notes}` : ""}
-            ${input.comercial ? `Comercial: ${input.comercial}` : ""}
-            ${input.provincia ? `Provincia: ${input.provincia}` : ""}
-            ${input.garantia ? `Garantía: ${input.garantia}` : ""}
           `.trim();
 
           if (textToEmbed) {
@@ -77,11 +74,6 @@ export const stockRouter = createTRPCRouter({
             imageUrl: input.imageUrl,
             url: input.url,
             notes: input.notes,
-            // Comerciante / procedencia
-            comercial: input.comercial,
-            sociedad: input.sociedad,
-            tienda: input.tienda,
-            provincia: input.provincia,
             // Precios y financiación
             precio_compra: input.precio_compra,
             precio_venta: input.precio_venta,
@@ -89,9 +81,7 @@ export const stockRouter = createTRPCRouter({
             impuestos_incluidos: input.impuestos_incluidos,
             impuesto: input.impuesto,
             // Estado
-            garantia: input.garantia,
             vendido: input.vendido,
-            gastos_adicionales: input.gastos_adicionales,
             // Embedding
             embedding: embedding,
           })
@@ -189,10 +179,7 @@ export const stockRouter = createTRPCRouter({
           updateData.precio_venta !== existingCarStock.precio_venta ||
           updateData.precio_compra !== existingCarStock.precio_compra ||
           updateData.description !== existingCarStock.description ||
-          updateData.notes !== existingCarStock.notes ||
-          updateData.comercial !== existingCarStock.comercial ||
-          updateData.provincia !== existingCarStock.provincia ||
-          updateData.garantia !== existingCarStock.garantia;
+          updateData.notes !== existingCarStock.notes;
 
         if (hasChanges) {
           try {
@@ -213,9 +200,6 @@ export const stockRouter = createTRPCRouter({
               ${updateData.precio_compra || existingCarStock.precio_compra ? `Precio de Compra: ${updateData.precio_compra || existingCarStock.precio_compra}` : ""}
               ${updateData.description || existingCarStock.description ? `Description: ${updateData.description || existingCarStock.description}` : ""}
               ${updateData.notes || existingCarStock.notes ? `Notes: ${updateData.notes || existingCarStock.notes}` : ""}
-              ${updateData.comercial || existingCarStock.comercial ? `Comercial: ${updateData.comercial || existingCarStock.comercial}` : ""}
-              ${updateData.provincia || existingCarStock.provincia ? `Provincia: ${updateData.provincia || existingCarStock.provincia}` : ""}
-              ${updateData.garantia || existingCarStock.garantia ? `Garantía: ${updateData.garantia || existingCarStock.garantia}` : ""}
             `.trim();
 
             if (textToEmbed) {
@@ -318,8 +302,6 @@ export const stockRouter = createTRPCRouter({
           marca,
           modelo,
           color,
-          provincia,
-          comercial,
           vendido,
           precio_min,
           precio_max,
@@ -352,14 +334,6 @@ export const stockRouter = createTRPCRouter({
 
         if (color) {
           conditions.push(ilike(carStock.color, `%${color}%`));
-        }
-
-        if (provincia) {
-          conditions.push(ilike(carStock.provincia, `%${provincia}%`));
-        }
-
-        if (comercial) {
-          conditions.push(ilike(carStock.comercial, `%${comercial}%`));
         }
 
         if (vendido !== undefined) {

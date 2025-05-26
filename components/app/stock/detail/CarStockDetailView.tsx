@@ -13,7 +13,6 @@ import {
   AlertCircle,
   Car,
   Calendar,
-  ExternalLink,
   CircleDollarSign,
   LucideIcon,
   ChevronLeft,
@@ -22,15 +21,11 @@ import {
   Gauge,
   Palette,
   Settings,
-  MapPin,
-  User,
-  FileText,
   CheckCircle,
   XCircle,
   Euro,
   Wrench,
   Hash,
-  Building,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -408,74 +403,6 @@ export function CarStockDetailView({ carStock }: CarStockDetailViewProps) {
             )}
           </CardContent>
         </Card>
-
-        {/* Commercial Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Commercial Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {carStock.comercial && (
-              <InfoItem
-                icon={User}
-                label="Commercial Contact"
-                value={carStock.comercial}
-              />
-            )}
-            {carStock.provincia && (
-              <InfoItem
-                icon={MapPin}
-                label="Province"
-                value={carStock.provincia}
-              />
-            )}
-            {carStock.sociedad && (
-              <InfoItem
-                icon={Building}
-                label="Company"
-                value={carStock.sociedad}
-              />
-            )}
-            {carStock.tienda && (
-              <InfoItem icon={Building} label="Store" value={carStock.tienda} />
-            )}
-            {carStock.garantia && (
-              <InfoItem
-                icon={FileText}
-                label="Warranty"
-                value={carStock.garantia}
-              />
-            )}
-            <InfoItem
-              icon={Calendar}
-              label="Added"
-              value={formatDate(carStock.createdAt)}
-            />
-            <InfoItem
-              icon={Calendar}
-              label="Last Updated"
-              value={formatDate(carStock.updatedAt)}
-            />
-            {carStock.url && (
-              <div className="flex items-center gap-3">
-                <ExternalLink className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <div className="text-sm text-muted-foreground">
-                    External Listing
-                  </div>
-                  <a
-                    href={carStock.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-primary hover:underline"
-                  >
-                    View Original Listing
-                  </a>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
       {/* Pricing Information */}
@@ -513,13 +440,6 @@ export function CarStockDetailView({ carStock }: CarStockDetailViewProps) {
                 icon={Euro}
                 label="Tax"
                 value={formatPrice(carStock.impuesto)}
-              />
-            )}
-            {carStock.gastos_adicionales && (
-              <InfoItem
-                icon={Euro}
-                label="Additional Costs"
-                value={formatPrice(carStock.gastos_adicionales)}
               />
             )}
             <InfoItem

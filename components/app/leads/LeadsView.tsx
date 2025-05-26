@@ -32,11 +32,15 @@ export function LeadsView({
     updateFilters,
     resetFilters,
     goToPage,
-  } = useLeadList();
+  } = useLeadList({
+    page: initialPagination.page,
+    limit: initialPagination.limit,
+  });
 
-  // Use the real data from the hooks if available, otherwise use the initial data
-  const displayLeads = isLoading ? initialLeads : leads;
-  const displayPagination = isLoading ? initialPagination : pagination;
+  // Use hook data if we've loaded any data, otherwise use initial data
+  const hasLoadedData = pagination.totalCount > 0;
+  const displayLeads = hasLoadedData ? leads : initialLeads;
+  const displayPagination = hasLoadedData ? pagination : initialPagination;
 
   return (
     <div className="space-y-6">
@@ -50,6 +54,7 @@ export function LeadsView({
           </Link>
         </Button>
       </div>
+
       {/* Filters */}
       <LeadsFilters
         filters={filters}

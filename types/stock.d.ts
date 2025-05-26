@@ -28,19 +28,14 @@ type StockItemType = {
     | "hibrido"
     | "lujo"
     | "deportivo"
-    | "furgoneta_carga"
-    | "furgoneta_pasajeros"
-    | "furgoneta_mixta"
+    | "furgoneta_pequena"
+    | "furgoneta_mediana"
+    | "furgoneta_grande"
     | "otro";
   description: string | null;
   imageUrl: string[] | null;
   url: string | null;
   notes: string | null;
-  // Comerciante / procedencia
-  comercial: string | null;
-  sociedad: string | null;
-  tienda: string | null;
-  provincia: string | null;
   // Precios y financiación
   precio_compra: string | null; // Numeric as string
   precio_venta: string | null; // Numeric as string
@@ -48,9 +43,7 @@ type StockItemType = {
   impuestos_incluidos: boolean | null;
   impuesto: string | null; // Numeric as string
   // Estado
-  garantia: string | null;
   vendido: boolean | null;
-  gastos_adicionales: string | null; // Numeric as string
   // Embeddings
   embedding: number[] | null;
   // Timestamps

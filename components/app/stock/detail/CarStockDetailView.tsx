@@ -354,13 +354,13 @@ export function CarStockDetailView({ carStock }: CarStockDetailViewProps) {
       </div>
 
       {/* Vehicle Information */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="">
         {/* Basic Information */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Vehicle Information</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {carStock.vin && (
               <InfoItem icon={Hash} label="VIN" value={carStock.vin} />
             )}

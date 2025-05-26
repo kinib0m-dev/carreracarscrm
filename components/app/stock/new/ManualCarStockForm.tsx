@@ -154,10 +154,10 @@ export function ManualCarStockForm() {
                   name="matricula"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>License Plate</FormLabel>
+                      <FormLabel>Matricula</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="License plate number"
+                          placeholder="Matricula"
                           {...field}
                           value={field.value || ""}
                         />
@@ -179,10 +179,10 @@ export function ManualCarStockForm() {
                   name="marca"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Brand</FormLabel>
+                      <FormLabel>Marca</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Vehicle brand"
+                          placeholder="Marca"
                           {...field}
                           value={field.value || ""}
                         />
@@ -196,10 +196,10 @@ export function ManualCarStockForm() {
                   name="modelo"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Model</FormLabel>
+                      <FormLabel>Modelo</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Vehicle model"
+                          placeholder="Modelo"
                           {...field}
                           value={field.value || ""}
                         />
@@ -233,7 +233,7 @@ export function ManualCarStockForm() {
                   name="type"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Vehicle Type</FormLabel>
+                      <FormLabel>Tipo de Vehiculo</FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         defaultValue={field.value}
@@ -280,10 +280,10 @@ export function ManualCarStockForm() {
                   name="motor"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Engine</FormLabel>
+                      <FormLabel>Motor</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Engine type"
+                          placeholder="Tipo de Motor"
                           {...field}
                           value={field.value || ""}
                         />
@@ -297,7 +297,7 @@ export function ManualCarStockForm() {
                   name="transmision"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Transmission</FormLabel>
+                      <FormLabel>Transmision</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="Transmission type"
@@ -314,7 +314,7 @@ export function ManualCarStockForm() {
                   name="puertas"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Doors</FormLabel>
+                      <FormLabel>Numero de Puertas</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -339,7 +339,7 @@ export function ManualCarStockForm() {
                   name="kilometros"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Kilometers</FormLabel>
+                      <FormLabel>Kilometros</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -367,7 +367,7 @@ export function ManualCarStockForm() {
                   name="carroceria"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Body Type</FormLabel>
+                      <FormLabel>Carroceria</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="Body type"
@@ -384,7 +384,7 @@ export function ManualCarStockForm() {
                   name="etiqueta"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Label</FormLabel>
+                      <FormLabel>Etiqueta</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="Environmental label"
@@ -401,7 +401,7 @@ export function ManualCarStockForm() {
                   name="fecha_version"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Model Year</FormLabel>
+                      <FormLabel>Año del Modelo</FormLabel>
                       <FormControl>
                         <Input
                           type="date"
@@ -427,7 +427,7 @@ export function ManualCarStockForm() {
                   name="precio_compra"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Purchase Price</FormLabel>
+                      <FormLabel>Precio de Compra</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="Purchase price"
@@ -444,7 +444,7 @@ export function ManualCarStockForm() {
                   name="precio_venta"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Sale Price</FormLabel>
+                      <FormLabel>Precio de Venta</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="Sale price"
@@ -461,7 +461,7 @@ export function ManualCarStockForm() {
                   name="precio_financiado"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Financed Price</FormLabel>
+                      <FormLabel>Precio Financiado</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="Financed price"
@@ -480,7 +480,7 @@ export function ManualCarStockForm() {
                   name="impuesto"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Tax Amount</FormLabel>
+                      <FormLabel>Impuesto</FormLabel>
                       <FormControl>
                         <Input
                           placeholder="Tax amount"
@@ -506,7 +506,7 @@ export function ManualCarStockForm() {
                         />
                       </FormControl>
                       <div className="space-y-1 leading-none">
-                        <FormLabel>Taxes included in price</FormLabel>
+                        <FormLabel>Impuestos Incluidos</FormLabel>
                       </div>
                     </FormItem>
                   )}
@@ -566,7 +566,7 @@ export function ManualCarStockForm() {
                 name="url"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Listing URL</FormLabel>
+                    <FormLabel>URL de la Web</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="Enter car listing URL"

@@ -30,6 +30,7 @@ import {
   createCarStockSchema,
 } from "@/lib/stock/validation/stock-schema";
 import { useCreateCarStock } from "@/lib/stock/hooks/use-stock";
+import { carTypeEnum } from "@/db/schema";
 
 function formatCarType(type: string) {
   return type.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
@@ -243,23 +244,7 @@ export function ManualCarStockForm() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {[
-                            "sedan",
-                            "suv",
-                            "hatchback",
-                            "coupe",
-                            "descapotable",
-                            "monovolumen",
-                            "pickup",
-                            "electrico",
-                            "hibrido",
-                            "lujo",
-                            "deportivo",
-                            "furgoneta_carga",
-                            "furgoneta_pasajeros",
-                            "furgoneta_mixta",
-                            "otro",
-                          ].map((type) => (
+                          {carTypeEnum.enumValues.map((type) => (
                             <SelectItem key={type} value={type}>
                               {formatCarType(type)}
                             </SelectItem>

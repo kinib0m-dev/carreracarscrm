@@ -125,15 +125,15 @@ export async function generateBotResponse(
           : "Kilometraje no especificado";
 
         context += `VEHÍCULO: ${carName || "Vehículo sin nombre"}
-TIPO: ${car.type}
-PRECIO: ${formattedPrice}
-KILÓMETROS: ${formattedKilometers}
-${car.color ? `COLOR: ${car.color}` : ""}
-${car.motor ? `MOTOR: ${car.motor}` : ""}
-${car.transmision ? `TRANSMISIÓN: ${car.transmision}` : ""}
-${car.matricula ? `MATRÍCULA: ${car.matricula}` : ""}
-DESCRIPCIÓN: ${car.description || "Sin descripción disponible"}
-IMÁGENES: ${car.imageUrl && car.imageUrl.length > 0 ? `${car.imageUrl.length} imagen(es) disponible(s)` : "Sin imágenes disponibles"}
+        TIPO: ${car.type}
+        PRECIO: ${formattedPrice}
+        KILÓMETROS: ${formattedKilometers}
+        ${car.color ? `COLOR: ${car.color}` : ""}
+        ${car.motor ? `MOTOR: ${car.motor}` : ""}
+        ${car.transmision ? `TRANSMISIÓN: ${car.transmision}` : ""}
+        ${car.matricula ? `MATRÍCULA: ${car.matricula}` : ""}
+        DESCRIPCIÓN: ${car.description || "Sin descripción disponible"}
+        IMÁGENES: ${car.imageUrl && car.imageUrl.length > 0 ? `${car.imageUrl.length} imagen(es) disponible(s)` : "Sin imágenes disponibles"}
 
 `;
       });

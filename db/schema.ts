@@ -547,3 +547,33 @@ export const botMessages = pgTable("bot_messages", {
   embedding: vector(768)("vector"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// -------------------------------------- WHATSAPP --------------------------------------
+// WhatsApp Messages table for storing all interactions
+export const whatsappMessages = pgTable("whatsapp_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  leadId: uuid("lead_id")
+    .notNull()
+    .references(() => leads.id, { onDelete: "cascade" }),
+
+  // Message details
+  whatsappMessageId: text("whatsapp_message_id"), // WhatsApp's message ID
+  direction: text("direction").notNull(), // 'inbound' or 'outbound'
+  messageType: text("message_type").default("text").notNull(), // 'text', 'image', 'template', etc.
+  content: text("content").notNull(),
+
+  // WhatsApp specific fields
+  phoneNumber: text("phone_number").notNull(),
+  whatsappTimestamp: timestamp("whatsapp_timestamp", { mode: "date" }),
+
+  // Status tracking
+  status: text("status").default("sent").notNull(), // 'sent', 'delivered', 'read', 'failed'
+  errorMessage: text("error_message"),
+
+  // Metadata
+  metadata: text("metadata"), // JSON string for additional data
+
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

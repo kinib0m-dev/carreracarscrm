@@ -28,6 +28,7 @@ import {
   filterLeadSchema,
   updateLeadSchema,
 } from "@/lib/leads/validation/leads-schema";
+import { sendManagerEscalationEmail } from "@/lib/utils/manager-emails";
 
 export const leadRouter = createTRPCRouter({
   // Create a new lead
@@ -208,9 +209,15 @@ export const leadRouter = createTRPCRouter({
     .input(updateLeadSchema)
     .mutation(async ({ input }) => {
       try {
-        // First, check if the lead exists
+        // First, check if the lead exists and get current status
         const existingLead = await db
-          .select({ id: leads.id })
+          .select({
+            id: leads.id,
+            status: leads.status,
+            name: leads.name,
+            phone: leads.phone,
+            email: leads.email,
+          })
           .from(leads)
           .where(eq(leads.id, input.id))
           .limit(1);
@@ -221,6 +228,9 @@ export const leadRouter = createTRPCRouter({
             message: "Lead not found",
           });
         }
+
+        const currentLead = existingLead[0];
+        const previousStatus = currentLead.status;
 
         // Check for unique constraints (email and phone) if they are being updated
         if (input.email) {
@@ -289,6 +299,25 @@ export const leadRouter = createTRPCRouter({
 
         // Update the lead
         await db.update(leads).set(updateData).where(eq(leads.id, id));
+
+        // Check if lead was escalated to manager status and send email notification
+        if (input.status === "manager" && previousStatus !== "manager") {
+          console.log(
+            `🚀 Lead ${currentLead.name} manually escalated to manager status - sending email notification`
+          );
+
+          // Send manager escalation email in the background (don't wait for it)
+          sendManagerEscalationEmail(
+            input.name, // Use updated name
+            input.phone || currentLead.phone || "No phone provided",
+            input.email || currentLead.email
+          ).catch((emailError) => {
+            console.error(
+              "Error sending manager escalation email:",
+              emailError
+            );
+          });
+        }
 
         // Get the updated lead with the same format as getById
         const updatedLeadResult = await db

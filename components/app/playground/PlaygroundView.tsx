@@ -168,7 +168,7 @@ export function PlaygroundView({ conversations }: BotPlaygroundViewProps) {
       setTimeout(() => {
         refetch();
         setIsTyping(false);
-      }, 500);
+      }, 10);
     } catch (error) {
       console.error("Failed to send message:", error);
       setIsTyping(false);

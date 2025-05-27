@@ -13,6 +13,7 @@ import { TRPCError } from "@trpc/server";
 import { eq, and, desc } from "drizzle-orm";
 import { generateEmbedding } from "@/lib/utils/embedding";
 import { generateBotResponse } from "../bot.actions";
+import { sendPlaygroundCompletionEmail } from "@/lib/utils/manager-emails";
 
 export const playgroundRouter = createTRPCRouter({
   // Create a new conversation with test lead
@@ -191,6 +192,7 @@ export const playgroundRouter = createTRPCRouter({
         const conversationCheck = await db
           .select({
             id: botConversations.id,
+            name: botConversations.name,
             testLeadId: botConversations.testLeadId,
             isCompleted: botConversations.isCompleted,
           })
@@ -210,8 +212,10 @@ export const playgroundRouter = createTRPCRouter({
           });
         }
 
+        const conversation = conversationCheck[0];
+
         // Check if conversation is completed
-        if (conversationCheck[0].isCompleted) {
+        if (conversation.isCompleted) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message:
@@ -258,6 +262,18 @@ export const playgroundRouter = createTRPCRouter({
           .set({ updatedAt: new Date() })
           .where(eq(botConversations.id, input.conversationId));
 
+        // Get current test lead status before generating response
+        let previousTestLeadStatus = null;
+        if (conversation.testLeadId) {
+          const currentTestLeadResult = await db
+            .select({ status: testLeads.status })
+            .from(testLeads)
+            .where(eq(testLeads.id, conversation.testLeadId))
+            .limit(1);
+
+          previousTestLeadStatus = currentTestLeadResult[0]?.status || null;
+        }
+
         // Generate bot response using RAG with test lead management
         const {
           response: botResponse,
@@ -270,11 +286,11 @@ export const playgroundRouter = createTRPCRouter({
             content: msg.content,
           })),
           userId,
-          conversationCheck[0].testLeadId || undefined
+          conversation.testLeadId || undefined
         );
 
         // Update test lead if there are updates
-        if (leadUpdate && conversationCheck[0].testLeadId) {
+        if (leadUpdate && conversation.testLeadId) {
           // Type-safe update object
           const updateData: Partial<typeof testLeads.$inferInsert> = {
             updatedAt: new Date(),
@@ -317,7 +333,39 @@ export const playgroundRouter = createTRPCRouter({
           await db
             .update(testLeads)
             .set(updateData)
-            .where(eq(testLeads.id, conversationCheck[0].testLeadId));
+            .where(eq(testLeads.id, conversation.testLeadId));
+
+          // Check if test lead was escalated to manager status and send email notification
+          if (
+            updateData.status === "manager" &&
+            previousTestLeadStatus !== "manager"
+          ) {
+            console.log(
+              `🧪 Test lead escalated to manager status - sending email notification`
+            );
+
+            // Get the updated test lead info for the email
+            const updatedTestLeadResult = await db
+              .select()
+              .from(testLeads)
+              .where(eq(testLeads.id, conversation.testLeadId))
+              .limit(1);
+
+            const updatedTestLead = updatedTestLeadResult[0];
+
+            if (updatedTestLead) {
+              // Send playground completion email in the background
+              sendPlaygroundCompletionEmail(
+                updatedTestLead.name,
+                conversation.name
+              ).catch((emailError) => {
+                console.error(
+                  "Error sending playground completion email:",
+                  emailError
+                );
+              });
+            }
+          }
         }
 
         // Mark conversation as completed if shouldComplete is true

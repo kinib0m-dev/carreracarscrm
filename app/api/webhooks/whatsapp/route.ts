@@ -19,6 +19,7 @@ import {
 } from "@/lib/whatsapp/utils/whatsapp-bot";
 import { setNextFollowUpDate } from "@/lib/whatsapp/followup/followup-service";
 import { FOLLOW_UP_CONFIG } from "@/lib/whatsapp/followup/followup-config";
+import { sendManagerEscalationEmail } from "@/lib/utils/manager-emails";
 // import { addMessageToQueue } from "@/lib/whatsapp/message-debouncing";
 import type {
   WhatsAppContact,
@@ -297,6 +298,9 @@ async function processAccumulatedMessages(
       `🔄 Processing combined message for ${lead.name}: "${combinedMessage}"`
     );
 
+    // Store the previous status to check for escalation
+    const previousStatus = lead.status;
+
     // Reset follow-up count and set next follow-up since they responded
     await setNextFollowUpDate(leadId);
 
@@ -348,6 +352,22 @@ async function processAccumulatedMessages(
 
       // Update lead in database
       await db.update(leads).set(updateData).where(eq(leads.id, leadId));
+
+      // Check if lead was escalated to manager status and send email notification
+      if (updateData.status === "manager" && previousStatus !== "manager") {
+        console.log(
+          `🚀 Lead ${lead.name} escalated to manager status - sending email notification`
+        );
+
+        // Send manager escalation email in the background (don't wait for it)
+        sendManagerEscalationEmail(
+          lead.name,
+          lead.phone || "No phone provided",
+          lead.email
+        ).catch((emailError) => {
+          console.error("Error sending manager escalation email:", emailError);
+        });
+      }
 
       // Handle additional preference fields
       if (

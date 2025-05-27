@@ -94,7 +94,7 @@ interface LeadWithTagsAndCampaignAndPreferences {
   tags: Array<{
     id: string;
     name: string;
-    color: string;
+    color: string | null;
     description: string | null;
     createdAt: Date;
   }>;

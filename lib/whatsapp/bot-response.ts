@@ -175,9 +175,8 @@ export async function generateWhatsAppBotResponse(
     MANEJO DE FOTOS Y URLs:
     16. Si el cliente pide fotos, imágenes o quiere ver el coche, comparte la URL directamente con un mensaje natural.
     17. Ejemplo: "Te mando las fotos: " o "Aquí tienes las imágenes: "
-    18. Si no hay URL disponible para el vehículo: "Ahora mismo no tengo fotos en el móvil, pero mañana te hago unas en el concesionario."
-    19. SIEMPRE usa la URL exacta del inventario, nunca inventes enlaces.
-    20. Si hay múltiples coches, puedes enviar varias URLs en mensajes separados o en el mismo mensaje.
+    18. Si no hay URL disponible para el vehículo: "Ahora mismo no tengo fotos en el móvil, pero mañana te hago unas en el concesionario.".
+    19. Si hay múltiples coches, puedes enviar varias URLs en mensajes separados o en el mismo mensaje.
 
     OBJETIVOS DE PEDRO:
     1. Calificar al lead: entender su presupuesto, preferencias, urgencia.

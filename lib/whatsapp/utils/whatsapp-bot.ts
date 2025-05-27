@@ -16,8 +16,16 @@ class WhatsAppBotAPI {
     this.baseUrl = `https://graph.facebook.com/${this.apiVersion}/${this.phoneNumberId}`;
 
     if (!this.accessToken || !this.phoneNumberId) {
-      throw new Error("WhatsApp API credentials are missing");
+      throw new Error(
+        "WhatsApp API credentials are missing from environment variables"
+      );
     }
+
+    console.log("WhatsApp API initialized:", {
+      phoneNumberId: this.phoneNumberId,
+      baseUrl: this.baseUrl,
+      hasToken: !!this.accessToken,
+    });
   }
 
   /**
@@ -27,14 +35,20 @@ class WhatsAppBotAPI {
     to: string,
     message: string
   ): Promise<WhatsAppAPIResponse> {
+    const formattedPhone = this.formatPhoneNumber(to);
+
+    console.log(`Sending WhatsApp message to ${formattedPhone}: ${message}`);
+
     const payload: WhatsAppOutgoingMessage = {
       messaging_product: "whatsapp",
-      to: this.formatPhoneNumber(to),
+      to: formattedPhone,
       type: "text",
       text: {
         body: message,
       },
     };
+
+    console.log("WhatsApp message payload:", JSON.stringify(payload, null, 2));
 
     return this.makeRequest("/messages", payload);
   }
@@ -43,11 +57,15 @@ class WhatsAppBotAPI {
    * Mark a message as read
    */
   async markAsRead(messageId: string): Promise<WhatsAppAPIResponse> {
+    console.log(`Marking WhatsApp message as read: ${messageId}`);
+
     const payload = {
       messaging_product: "whatsapp",
       status: "read",
       message_id: messageId,
     };
+
+    console.log("Mark as read payload:", JSON.stringify(payload, null, 2));
 
     return this.makeRequest("/messages", payload);
   }
@@ -56,7 +74,9 @@ class WhatsAppBotAPI {
    * Format phone number to WhatsApp format (remove + and spaces)
    */
   private formatPhoneNumber(phoneNumber: string): string {
-    return phoneNumber.replace(/[^\d]/g, "");
+    const formatted = phoneNumber.replace(/[^\d]/g, "");
+    console.log(`Formatted phone number: ${phoneNumber} -> ${formatted}`);
+    return formatted;
   }
 
   /**
@@ -68,6 +88,9 @@ class WhatsAppBotAPI {
   ): Promise<WhatsAppAPIResponse> {
     const url = `${this.baseUrl}${endpoint}`;
 
+    console.log(`Making WhatsApp API request to: ${url}`);
+    console.log("Request payload:", JSON.stringify(payload, null, 2));
+
     try {
       const response = await fetch(url, {
         method: "POST",
@@ -78,20 +101,36 @@ class WhatsAppBotAPI {
         body: JSON.stringify(payload),
       });
 
+      console.log(`WhatsApp API response status: ${response.status}`);
+
       const data = (await response.json()) as WhatsAppAPIResponse &
         WhatsAppAPIError;
 
+      console.log("WhatsApp API response data:", JSON.stringify(data, null, 2));
+
       if (!response.ok) {
-        console.error("WhatsApp API Error:", data);
-        throw new Error(
-          `WhatsApp API Error: ${data.error?.message || "Unknown error"}`
-        );
+        console.error("WhatsApp API Error:", {
+          status: response.status,
+          statusText: response.statusText,
+          data,
+        });
+
+        const errorMessage =
+          data.error?.message ||
+          `HTTP ${response.status}: ${response.statusText}`;
+        throw new Error(`WhatsApp API Error: ${errorMessage}`);
       }
 
+      console.log("WhatsApp API request successful");
       return data;
     } catch (error) {
       console.error("Error making WhatsApp API request:", error);
-      throw error;
+
+      if (error instanceof Error) {
+        throw error;
+      }
+
+      throw new Error(`WhatsApp API request failed: ${String(error)}`);
     }
   }
 }

@@ -210,6 +210,7 @@ export const leads = pgTable("leads", {
   lastContactedAt: timestamp("last_contacted_at", { mode: "date" }),
   lastMessageAt: timestamp("last_message_at", { mode: "date" }),
   nextFollowUpDate: timestamp("next_follow_up_date", { mode: "date" }),
+  followUpCount: integer("follow_up_count").default(0),
   // Created & Updated
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

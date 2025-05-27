@@ -84,3 +84,52 @@ export async function updateMessageStatus(
     console.error("Error updating message status:", error);
   }
 }
+
+/**
+ * Get the last message sent to a lead (for follow-up logic)
+ */
+export async function getLastMessageForLead(
+  leadId: string
+): Promise<WhatsAppMessageRecord | null> {
+  try {
+    const messages = await db
+      .select()
+      .from(whatsappMessages)
+      .where(eq(whatsappMessages.leadId, leadId))
+      .orderBy(desc(whatsappMessages.createdAt))
+      .limit(1);
+
+    return messages.length > 0 ? (messages[0] as WhatsAppMessageRecord) : null;
+  } catch (error) {
+    console.error("Error getting last message for lead:", error);
+    return null;
+  }
+}
+
+/**
+ * Get follow-up messages sent to a lead
+ */
+export async function getFollowUpMessagesForLead(
+  leadId: string
+): Promise<WhatsAppMessageRecord[]> {
+  try {
+    const messages = await db
+      .select()
+      .from(whatsappMessages)
+      .where(eq(whatsappMessages.leadId, leadId))
+      .orderBy(desc(whatsappMessages.createdAt));
+
+    // Filter messages that have follow-up metadata
+    return (messages as WhatsAppMessageRecord[]).filter((msg) => {
+      try {
+        const metadata = msg.metadata ? JSON.parse(msg.metadata) : {};
+        return metadata.isFollowUp === true;
+      } catch {
+        return false;
+      }
+    });
+  } catch (error) {
+    console.error("Error getting follow-up messages for lead:", error);
+    return [];
+  }
+}

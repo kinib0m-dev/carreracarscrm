@@ -1,3 +1,5 @@
+// app/api/webhooks/whatsapp/route.ts - Updated with follow-up logic
+
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import {
@@ -24,6 +26,8 @@ import type {
   WhatsAppAPIResponse,
 } from "@/types/whatsapp";
 import type { Lead } from "@/types/database";
+import { setNextFollowUpDate } from "@/lib/whatsapp/followup/followup-service";
+import { FOLLOW_UP_CONFIG } from "@/lib/whatsapp/followup/followup-config";
 
 const WEBHOOK_VERIFY_TOKEN = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
 
@@ -134,11 +138,15 @@ async function handleNewContact(contact: WhatsAppContact): Promise<void> {
           phone,
           status: "nuevo" as (typeof leadStatusEnum.enumValues)[number],
           lastContactedAt: new Date(),
+          followUpCount: 0, // Initialize follow-up count
         })
         .returning();
 
-      // Send welcome message to new lead
+      // Send welcome message to new lead with delay
       await sendWelcomeMessage(phone, name, newLead.id);
+
+      // Set initial follow-up date
+      await setNextFollowUpDate(newLead.id);
     } else {
       console.log(`Lead already exists for phone: ${phone}`);
     }
@@ -155,6 +163,11 @@ async function sendWelcomeMessage(
   try {
     // Extract first name
     const firstName = name.trim().split(" ")[0];
+
+    await new Promise((resolve) =>
+      setTimeout(resolve, FOLLOW_UP_CONFIG.MESSAGE_DELAY)
+    );
+
     // Send welcome message
     const welcomeMessage = `Hola ${firstName}! Soy Pedro de Carrera Cars. ¿Estás buscando algún vehículo en especial o solo estás viendo opciones?`;
 
@@ -170,6 +183,9 @@ async function sendWelcomeMessage(
         content: welcomeMessage,
         phoneNumber: phone,
         status: "sent",
+        metadata: {
+          isWelcomeMessage: true,
+        },
       });
 
       // Update lead status to "contactado"
@@ -217,6 +233,7 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
           status: "nuevo" as (typeof leadStatusEnum.enumValues)[number],
           lastContactedAt: new Date(),
           lastMessageAt: new Date(),
+          followUpCount: 0,
         })
         .returning();
 
@@ -234,6 +251,9 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
       status: "received",
     });
 
+    // Reset follow-up count and set next follow-up since they responded
+    await setNextFollowUpDate(lead.id);
+
     // Generate bot response
     const { response: botResponse, leadUpdate } =
       await generateWhatsAppBotResponse(messageText, lead.id);
@@ -248,11 +268,13 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
         lastContactedAt: Date;
         lastMessageAt: Date;
         nextFollowUpDate: Date;
+        followUpCount: number;
         updatedAt: Date;
       }> = {
         updatedAt: new Date(),
         lastContactedAt: new Date(),
         lastMessageAt: new Date(),
+        followUpCount: 0, // Reset follow-up count when they respond
       };
 
       // Validate status against the enum before updating
@@ -317,6 +339,10 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
       }
     }
 
+    await new Promise((resolve) =>
+      setTimeout(resolve, FOLLOW_UP_CONFIG.MESSAGE_DELAY)
+    );
+
     // Send bot response via WhatsApp
     const sentMessage = await whatsappBotAPI.sendBotMessage(phone, botResponse);
 
@@ -334,8 +360,11 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
   } catch (error) {
     console.error("Error handling incoming message:", error);
 
-    // Send fallback message
+    // Send fallback message with delay
     try {
+      await new Promise((resolve) =>
+        setTimeout(resolve, FOLLOW_UP_CONFIG.MESSAGE_DELAY)
+      );
       await whatsappBotAPI.sendBotMessage(
         `+${message.from}`,
         "Perdón, ha habido un problema técnico. Un momento por favor..."

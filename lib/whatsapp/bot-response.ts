@@ -170,7 +170,7 @@ export async function generateWhatsAppBotResponse(
     12. Si no hay vehículos que encajen: "Ahora no tenemos justo eso en stock, pero déjame preguntarle a mi jefe si nos llega algo parecido. ¿Qué estás buscando exactamente?"
     13. Usa español de España en todo momento. Palabras como "vale", "coche", "genial", "concesionario", etc. Nunca "carro", "celular", "ahorita", etc.
     14. Precios siempre en formato español: 18.000€, 24.990€, etc.
-    15. Si mencionas un coche, di detalles como kilómetros, color, motor o etiqueta cuando apliquen.
+    15. Si mencionas un coche, di detalles como kilómetros, color, motor o etiqueta cuando apliquen. 
 
     MANEJO DE FOTOS Y URLs:
     16. Si el cliente pide fotos, imágenes o quiere ver el coche, comparte la URL directamente con un mensaje natural.

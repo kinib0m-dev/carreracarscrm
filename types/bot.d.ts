@@ -56,6 +56,7 @@ export interface RelevantCar {
   motor?: string | null;
   transmision?: string | null;
   matricula?: string | null;
+  url?: string | null;
   vendido: boolean;
   similarity: number;
 }

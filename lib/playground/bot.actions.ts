@@ -237,27 +237,12 @@ export async function generateBotResponse(
     - rechazado: "Vaya, qué pena. Si entra algo nuevo que te pueda gustar, te escribo."
     - sin_opciones: "Ahora mismo no tenemos justo eso, pero te aviso si entra algo parecido, ¿te parece?"
 
-    INSTRUCCIONES ESPECIALES PARA IA:
-    Al final de tu respuesta, debes incluir un JSON con las actualizaciones del lead. El formato debe ser exactamente:
+    INSTRUCCIONES ESPECIALES PARA ACTUALIZACIÓN:
+    IMPORTANTE: Al final de tu respuesta, incluye SOLO UNA LÍNEA con el formato exacto:
 
-    LEAD_UPDATE_JSON:
-    {
-      "status": "nuevo|contactado|activo|calificado|propuesta|evaluando|manager|descartado|sin_interes|inactivo|perdido|rechazado|sin_opciones",
-      "budget": "rango de presupuesto mencionado",
-      "expectedPurchaseTimeframe": "inmediato|esta_semana|proxima_semana|dos_semanas|un_mes|1-3 meses|3-6 meses|6+ meses|indefinido",
-      "type": "autonomo|empresa|particular|pensionista",
-      "preferredVehicleType": "tipo de vehículo mencionado",
-      "preferredBrand": "marca preferida",
-      "preferredFuelType": "gasolina|diesel|hibrido|electrico",
-      "maxKilometers": número_máximo_kilómetros,
-      "minYear": año_mínimo,
-      "maxYear": año_máximo,
-      "hasTradeIn": true/false,
-      "needsFinancing": true/false,
-      "isFirstTimeBuyer": true/false,
-      "urgencyLevel": 1-5,
-      "shouldComplete": true/false
-    }
+    LEAD_UPDATE_JSON: {"status": "estado", "budget": "presupuesto", "shouldComplete": true/false}
+
+    NUNCA uses bloques de código markdown (json) ni múltiples líneas. SOLO una línea simple después de tu respuesta natural.
 
     Solo incluye en el JSON los campos que han cambiado o se han mencionado en esta conversación. Si el estado llega a "manager", marca "shouldComplete": true.
 
@@ -301,20 +286,45 @@ export async function generateBotResponse(
     const result = await chat.sendMessage(query);
     const responseText = result.response.text();
 
-    // Parse the response to extract lead updates
+    // Parse the response to extract lead updates with improved regex
     let botResponse = responseText;
     let leadUpdate: TestLeadUpdate | undefined;
     let shouldComplete = false;
 
-    // Look for the LEAD_UPDATE_JSON in the response
-    const jsonMatch = responseText.match(/LEAD_UPDATE_JSON:\s*(\{[\s\S]*?\})/);
+    // Multiple patterns to catch the JSON in different formats
+    const jsonPatterns = [
+      /LEAD_UPDATE_JSON:\s*(\{[^}]*\})/i,
+      /LEAD_UPDATE_JSON:\s*```\s*json\s*(\{[\s\S]*?\})\s*```/i,
+      /LEAD_UPDATE_JSON:\s*```(\{[\s\S]*?\})```/i,
+      /```\s*json\s*(\{[\s\S]*?\})\s*```/gi,
+      /(\{[^}]*"status"[^}]*\})/i,
+    ];
+
+    let jsonMatch = null;
+    for (const pattern of jsonPatterns) {
+      jsonMatch = responseText.match(pattern);
+      if (jsonMatch) break;
+    }
+
     if (jsonMatch) {
       try {
         const updateData = JSON.parse(jsonMatch[1]);
 
-        // Remove the JSON from the bot response
+        // Clean the response by removing ALL variations of the JSON
         botResponse = responseText
-          .replace(/LEAD_UPDATE_JSON:[\s\S]*/, "")
+          // Remove LEAD_UPDATE_JSON with various formats
+          .replace(
+            /LEAD_UPDATE_JSON:\s*```?\s*json\s*\{[\s\S]*?\}\s*```?/gi,
+            ""
+          )
+          .replace(/LEAD_UPDATE_JSON:\s*\{[^}]*\}/gi, "")
+          // Remove any remaining JSON blocks
+          .replace(/```\s*json[\s\S]*?```/gi, "")
+          .replace(/```[\s\S]*?```/gi, "")
+          // Remove standalone JSON objects that look like lead updates
+          .replace(/\{[^}]*"status"[^}]*\}/gi, "")
+          // Clean up multiple newlines and trim
+          .replace(/\n\s*\n\s*\n/g, "\n\n")
           .trim();
 
         // Extract the lead update data
@@ -349,8 +359,18 @@ export async function generateBotResponse(
         leadUpdate.lastMessageAt = new Date();
 
         shouldComplete = updateData.shouldComplete === true;
+
+        console.log("✅ Successfully parsed lead update:", leadUpdate);
       } catch (error) {
         console.error("Error parsing lead update JSON:", error);
+        console.log("Raw JSON match:", jsonMatch[1]);
+
+        // Still clean the response even if JSON parsing fails
+        botResponse = responseText
+          .replace(/LEAD_UPDATE_JSON:[\s\S]*$/gi, "")
+          .replace(/```[\s\S]*?```/gi, "")
+          .replace(/\{[^}]*"status"[^}]*\}/gi, "")
+          .trim();
       }
     }
 

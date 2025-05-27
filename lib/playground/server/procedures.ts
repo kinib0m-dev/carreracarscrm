@@ -290,60 +290,111 @@ export const playgroundRouter = createTRPCRouter({
         );
 
         // Update test lead if there are updates
-        if (leadUpdate && conversation.testLeadId) {
-          // Type-safe update object
+        if (
+          leadUpdate &&
+          conversation.testLeadId &&
+          Object.keys(leadUpdate).length > 0
+        ) {
+          // Create a properly typed update object
           const updateData: Partial<typeof testLeads.$inferInsert> = {
             updatedAt: new Date(),
           };
 
-          // Only add fields that exist and match the expected types
-          if (leadUpdate.status)
+          // Validate and apply each field with proper type checking
+          if (
+            leadUpdate.status &&
+            leadStatusEnum.enumValues.includes(
+              leadUpdate.status as (typeof leadStatusEnum.enumValues)[number]
+            )
+          ) {
             updateData.status =
               leadUpdate.status as (typeof leadStatusEnum.enumValues)[number];
-          if (leadUpdate.budget) updateData.budget = leadUpdate.budget;
-          if (leadUpdate.expectedPurchaseTimeframe)
+          }
+
+          if (leadUpdate.budget) {
+            updateData.budget = leadUpdate.budget;
+          }
+
+          if (
+            leadUpdate.expectedPurchaseTimeframe &&
+            timeframeEnum.enumValues.includes(
+              leadUpdate.expectedPurchaseTimeframe as (typeof timeframeEnum.enumValues)[number]
+            )
+          ) {
             updateData.expectedPurchaseTimeframe =
               leadUpdate.expectedPurchaseTimeframe as (typeof timeframeEnum.enumValues)[number];
-          if (leadUpdate.type)
+          }
+
+          if (
+            leadUpdate.type &&
+            leadTypeEnum.enumValues.includes(
+              leadUpdate.type as (typeof leadTypeEnum.enumValues)[number]
+            )
+          ) {
             updateData.type =
               leadUpdate.type as (typeof leadTypeEnum.enumValues)[number];
-          if (leadUpdate.preferredVehicleType)
-            updateData.preferredVehicleType = leadUpdate.preferredVehicleType;
-          if (leadUpdate.preferredBrand)
-            updateData.preferredBrand = leadUpdate.preferredBrand;
-          if (leadUpdate.preferredFuelType)
-            updateData.preferredFuelType = leadUpdate.preferredFuelType;
-          if (leadUpdate.maxKilometers)
-            updateData.maxKilometers = leadUpdate.maxKilometers;
-          if (leadUpdate.minYear) updateData.minYear = leadUpdate.minYear;
-          if (leadUpdate.maxYear) updateData.maxYear = leadUpdate.maxYear;
-          if (leadUpdate.hasTradeIn !== undefined)
-            updateData.hasTradeIn = leadUpdate.hasTradeIn;
-          if (leadUpdate.needsFinancing !== undefined)
-            updateData.needsFinancing = leadUpdate.needsFinancing;
-          if (leadUpdate.isFirstTimeBuyer !== undefined)
-            updateData.isFirstTimeBuyer = leadUpdate.isFirstTimeBuyer;
-          if (leadUpdate.urgencyLevel)
-            updateData.urgencyLevel = leadUpdate.urgencyLevel;
-          if (leadUpdate.lastContactedAt)
-            updateData.lastContactedAt = leadUpdate.lastContactedAt;
-          if (leadUpdate.lastMessageAt)
-            updateData.lastMessageAt = leadUpdate.lastMessageAt;
+          }
 
+          if (leadUpdate.preferredVehicleType) {
+            updateData.preferredVehicleType = leadUpdate.preferredVehicleType;
+          }
+
+          if (leadUpdate.preferredBrand) {
+            updateData.preferredBrand = leadUpdate.preferredBrand;
+          }
+
+          if (leadUpdate.preferredFuelType) {
+            updateData.preferredFuelType = leadUpdate.preferredFuelType;
+          }
+
+          if (leadUpdate.maxKilometers) {
+            updateData.maxKilometers = leadUpdate.maxKilometers;
+          }
+
+          if (leadUpdate.minYear) {
+            updateData.minYear = leadUpdate.minYear;
+          }
+
+          if (leadUpdate.maxYear) {
+            updateData.maxYear = leadUpdate.maxYear;
+          }
+
+          if (leadUpdate.hasTradeIn !== undefined) {
+            updateData.hasTradeIn = leadUpdate.hasTradeIn;
+          }
+
+          if (leadUpdate.needsFinancing !== undefined) {
+            updateData.needsFinancing = leadUpdate.needsFinancing;
+          }
+
+          if (leadUpdate.isFirstTimeBuyer !== undefined) {
+            updateData.isFirstTimeBuyer = leadUpdate.isFirstTimeBuyer;
+          }
+
+          if (leadUpdate.urgencyLevel) {
+            updateData.urgencyLevel = leadUpdate.urgencyLevel;
+          }
+
+          if (leadUpdate.lastContactedAt) {
+            updateData.lastContactedAt = leadUpdate.lastContactedAt;
+          }
+
+          if (leadUpdate.lastMessageAt) {
+            updateData.lastMessageAt = leadUpdate.lastMessageAt;
+          }
+
+          // Perform the database update
           await db
             .update(testLeads)
             .set(updateData)
-            .where(eq(testLeads.id, conversation.testLeadId));
+            .where(eq(testLeads.id, conversation.testLeadId))
+            .returning();
 
           // Check if test lead was escalated to manager status and send email notification
           if (
             updateData.status === "manager" &&
             previousTestLeadStatus !== "manager"
           ) {
-            console.log(
-              `🧪 Test lead escalated to manager status - sending email notification`
-            );
-
             // Get the updated test lead info for the email
             const updatedTestLeadResult = await db
               .select()
@@ -366,6 +417,8 @@ export const playgroundRouter = createTRPCRouter({
               });
             }
           }
+        } else {
+          console.log("ℹ️ No lead updates to apply or missing testLeadId");
         }
 
         // Mark conversation as completed if shouldComplete is true

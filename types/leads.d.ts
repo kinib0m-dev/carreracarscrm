@@ -8,7 +8,26 @@ type Tag = {
   createdAt: Date;
 };
 
-// Type for a lead with tags and campaign name
+// Lead preferences type
+type LeadPreferences = {
+  id: string;
+  leadId: string;
+  preferredVehicleType?: string | null;
+  preferredBrand?: string | null;
+  preferredFuelType?: string | null;
+  maxKilometers?: number | null;
+  minYear?: number | null;
+  maxYear?: number | null;
+  needsFinancing?: boolean | null;
+  preferredTransmission?: string | null;
+  preferredColors?: string[] | null;
+  minBudget?: string | null;
+  maxBudget?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+// Type for a lead with tags, campaign name, and preferences
 type LeadWithTagsAndCampaign = {
   id: string;
   // Lead basic info
@@ -26,11 +45,14 @@ type LeadWithTagsAndCampaign = {
   lastContactedAt: Date | null;
   lastMessageAt: Date | null;
   nextFollowUpDate: Date | null;
+  followUpCount: number | null;
   // Created & Updated
   createdAt: Date | null;
   updatedAt: Date | null;
   // Tags
   tags: Tag[];
+  // Preferences (optional for backward compatibility)
+  preferences?: LeadPreferences | null;
 };
 
 type LeadTasks = {

@@ -35,6 +35,63 @@ type LeadsTableProps = {
   isLoading?: boolean;
 };
 
+// Helper function to format follow-up date with time
+const formatFollowUpDate = (date: Date | null) => {
+  if (!date) return null;
+
+  const followUpDate = new Date(date);
+  const now = new Date();
+
+  // Check if it's today
+  const isToday = followUpDate.toDateString() === now.toDateString();
+
+  // Check if it's tomorrow
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const isTomorrow = followUpDate.toDateString() === tomorrow.toDateString();
+
+  // Check if it's yesterday (overdue)
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = followUpDate.toDateString() === yesterday.toDateString();
+
+  // Format time
+  const timeString = format(followUpDate, "HH:mm");
+
+  if (isToday) {
+    return {
+      dateLabel: "Today",
+      timeLabel: timeString,
+      isOverdue: followUpDate < now,
+      isUrgent: true,
+    };
+  } else if (isTomorrow) {
+    return {
+      dateLabel: "Tomorrow",
+      timeLabel: timeString,
+      isOverdue: false,
+      isUrgent: true,
+    };
+  } else if (isYesterday) {
+    return {
+      dateLabel: "Yesterday",
+      timeLabel: timeString,
+      isOverdue: true,
+      isUrgent: true,
+    };
+  } else {
+    // Check if it's in the past (overdue)
+    const isOverdue = followUpDate < now;
+
+    return {
+      dateLabel: format(followUpDate, "MMM d, yyyy"),
+      timeLabel: timeString,
+      isOverdue,
+      isUrgent: false,
+    };
+  }
+};
+
 export function LeadsTable({ leads, isLoading = false }: LeadsTableProps) {
   if (isLoading) {
     return <div className="p-8 text-center">Loading leads...</div>;
@@ -69,6 +126,8 @@ export function LeadsTable({ leads, isLoading = false }: LeadsTableProps) {
             const timeframeColor = getTimeframeColor(
               lead.expectedPurchaseTimeframe
             );
+
+            const followUpInfo = formatFollowUpDate(lead.nextFollowUpDate);
 
             return (
               <TableRow key={lead.id}>
@@ -163,14 +222,39 @@ export function LeadsTable({ leads, isLoading = false }: LeadsTableProps) {
                   )}
                 </TableCell>
                 <TableCell>
-                  {lead.nextFollowUpDate ? (
-                    <div>
-                      <div>
-                        {format(new Date(lead.nextFollowUpDate), "MMM d, yyyy")}
+                  {followUpInfo ? (
+                    <div className="space-y-1">
+                      <div
+                        className={`text-sm font-medium ${
+                          followUpInfo.isOverdue
+                            ? "text-red-600 dark:text-red-400"
+                            : followUpInfo.isUrgent
+                              ? "text-amber-600 dark:text-amber-400"
+                              : ""
+                        }`}
+                      >
+                        {followUpInfo.dateLabel}
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        In {daysUntilNextFollowUp(lead)} days
+                      <div className="flex items-center gap-1">
+                        <Badge
+                          variant={
+                            followUpInfo.isOverdue ? "destructive" : "outline"
+                          }
+                          className="text-xs"
+                        >
+                          {followUpInfo.timeLabel}
+                        </Badge>
+                        {followUpInfo.isOverdue && (
+                          <Badge variant="destructive" className="text-xs">
+                            Overdue
+                          </Badge>
+                        )}
                       </div>
+                      {!followUpInfo.isUrgent && (
+                        <div className="text-xs text-muted-foreground">
+                          In {daysUntilNextFollowUp(lead)} days
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <span className="text-muted-foreground text-xs">

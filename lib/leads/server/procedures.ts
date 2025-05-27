@@ -8,6 +8,7 @@ import {
   leadTags,
   leadTasks,
   tags,
+  leadPreferences,
 } from "@/db/schema";
 import { TRPCError } from "@trpc/server";
 import {
@@ -123,7 +124,7 @@ export const leadRouter = createTRPCRouter({
         });
       }
     }),
-  // Get a lead by ID
+  // Get a lead by ID with preferences
   getById: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ input }) => {
@@ -144,6 +145,7 @@ export const leadRouter = createTRPCRouter({
             lastContactedAt: leads.lastContactedAt,
             lastMessageAt: leads.lastMessageAt,
             nextFollowUpDate: leads.nextFollowUpDate,
+            followUpCount: leads.followUpCount,
             createdAt: leads.createdAt,
             updatedAt: leads.updatedAt,
           })
@@ -170,15 +172,25 @@ export const leadRouter = createTRPCRouter({
           .innerJoin(tags, eq(leadTags.tagId, tags.id))
           .where(eq(leadTags.leadId, input.id));
 
-        // Format the lead with tags
-        const leadWithTags = {
+        // Get lead preferences
+        const preferencesResult = await db
+          .select()
+          .from(leadPreferences)
+          .where(eq(leadPreferences.leadId, input.id))
+          .limit(1);
+
+        const preferences = preferencesResult[0] || null;
+
+        // Format the lead with tags and preferences
+        const leadWithTagsAndPreferences = {
           ...lead,
           tags: leadTagsList.map((item) => item.tag),
+          preferences,
         };
 
         return {
           success: true,
-          lead: leadWithTags,
+          lead: leadWithTagsAndPreferences,
         };
       } catch (error) {
         console.error("Error fetching lead:", error);
@@ -293,6 +305,9 @@ export const leadRouter = createTRPCRouter({
             lastContactedAt: leads.lastContactedAt,
             lastMessageAt: leads.lastMessageAt,
             nextFollowUpDate: leads.nextFollowUpDate,
+            followUpCount: leads.followUpCount,
+            createdAt: leads.createdAt,
+            updatedAt: leads.updatedAt,
           })
           .from(leads)
           .leftJoin(campaigns, eq(leads.campaignId, campaigns.id))
@@ -310,15 +325,25 @@ export const leadRouter = createTRPCRouter({
           .innerJoin(tags, eq(leadTags.tagId, tags.id))
           .where(eq(leadTags.leadId, id));
 
-        // Format the lead with tags
-        const leadWithTags = {
+        // Get lead preferences
+        const preferencesResult = await db
+          .select()
+          .from(leadPreferences)
+          .where(eq(leadPreferences.leadId, id))
+          .limit(1);
+
+        const preferences = preferencesResult[0] || null;
+
+        // Format the lead with tags and preferences
+        const leadWithTagsAndPreferences = {
           ...updatedLead,
           tags: leadTagsList.map((item) => item.tag),
+          preferences,
         };
 
         return {
           success: true,
-          lead: leadWithTags,
+          lead: leadWithTagsAndPreferences,
         };
       } catch (error) {
         console.error("Error updating lead:", error);
@@ -349,16 +374,21 @@ export const leadRouter = createTRPCRouter({
             message: "Lead not found",
           });
         }
-        // 1. Delete lead tags
+        // 1. Delete lead preferences
+        await db
+          .delete(leadPreferences)
+          .where(eq(leadPreferences.leadId, input.id));
+
+        // 2. Delete lead tags
         await db.delete(leadTags).where(eq(leadTags.leadId, input.id));
 
-        // 2. Delete lead notes
+        // 3. Delete lead notes
         await db.delete(leadNotes).where(eq(leadNotes.leadId, input.id));
 
-        // 3. Delete lead tasks
+        // 4. Delete lead tasks
         await db.delete(leadTasks).where(eq(leadTasks.leadId, input.id));
 
-        // 4. Finally, delete the lead itself
+        // 5. Finally, delete the lead itself
         await db.delete(leads).where(eq(leads.id, input.id));
 
         return {
@@ -482,6 +512,7 @@ export const leadRouter = createTRPCRouter({
           lastContactedAt: leads.lastContactedAt,
           lastMessageAt: leads.lastMessageAt,
           nextFollowUpDate: leads.nextFollowUpDate,
+          followUpCount: leads.followUpCount,
           createdAt: leads.createdAt,
           updatedAt: leads.updatedAt,
         })

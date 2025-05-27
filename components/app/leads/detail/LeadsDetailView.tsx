@@ -20,19 +20,20 @@ import {
   getStatusBadgeClass,
   getTimeframeColor,
 } from "@/lib/leads/utils/lead-utils";
-import { LeadWithTagsAndCampaign } from "@/types/leads";
 import {
   AlertCircle,
   ArrowLeft,
   Badge,
   Briefcase,
   Calendar,
+  Car,
   DollarSign,
   Edit,
   Info,
   Mail,
   Phone,
   PlusCircle,
+  Settings,
   Tag,
   Trash2,
   User,
@@ -54,9 +55,54 @@ import { NotesPreview } from "../notes/NotesPreview";
 import { TasksPreview } from "../tasks/TaskPreview";
 import { LeadTagsManagement } from "../tags/LeadTagsManagement";
 import { LeadSendEmail } from "../email/LeadsSendEmail";
+import { leadStatusEnum, leadTypeEnum, timeframeEnum } from "@/db/schema";
+
+interface LeadPreferences {
+  id: string;
+  leadId: string;
+  preferredVehicleType?: string | null;
+  preferredBrand?: string | null;
+  preferredFuelType?: string | null;
+  maxKilometers?: number | null;
+  minYear?: number | null;
+  maxYear?: number | null;
+  needsFinancing?: boolean | null;
+  preferredTransmission?: string | null;
+  preferredColors?: string[] | null;
+  minBudget?: string | null;
+  maxBudget?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface LeadWithTagsAndCampaignAndPreferences {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  type: (typeof leadTypeEnum.enumValues)[number] | null;
+  status: (typeof leadStatusEnum.enumValues)[number];
+  expectedPurchaseTimeframe: (typeof timeframeEnum.enumValues)[number] | null;
+  budget: string | null;
+  campaignName: string | null;
+  lastContactedAt: Date | null;
+  lastMessageAt: Date | null;
+  nextFollowUpDate: Date | null;
+  followUpCount: number | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  tags: Array<{
+    id: string;
+    name: string;
+    color: string;
+    description: string | null;
+    createdAt: Date;
+  }>;
+  preferences?: LeadPreferences | null;
+}
 
 interface LeadsDetailViewProps {
-  lead: LeadWithTagsAndCampaign;
+  lead: LeadWithTagsAndCampaignAndPreferences;
 }
 
 export function LeadsDetailView({ lead }: LeadsDetailViewProps) {
@@ -85,6 +131,93 @@ export function LeadsDetailView({ lead }: LeadsDetailViewProps) {
     } finally {
       setIsDeleteDialogOpen(false);
     }
+  };
+
+  // Helper function to format vehicle preferences
+  const formatVehiclePreferences = (preferences: LeadPreferences) => {
+    const items = [];
+
+    if (preferences.preferredVehicleType) {
+      items.push({
+        label: "Vehicle Type",
+        value:
+          preferences.preferredVehicleType.charAt(0).toUpperCase() +
+          preferences.preferredVehicleType.slice(1),
+      });
+    }
+
+    if (preferences.preferredBrand) {
+      items.push({
+        label: "Brand",
+        value:
+          preferences.preferredBrand.charAt(0).toUpperCase() +
+          preferences.preferredBrand.slice(1),
+      });
+    }
+
+    if (preferences.preferredFuelType) {
+      items.push({
+        label: "Fuel Type",
+        value:
+          preferences.preferredFuelType.charAt(0).toUpperCase() +
+          preferences.preferredFuelType.slice(1),
+      });
+    }
+
+    if (preferences.preferredTransmission) {
+      items.push({
+        label: "Transmission",
+        value:
+          preferences.preferredTransmission.charAt(0).toUpperCase() +
+          preferences.preferredTransmission.slice(1),
+      });
+    }
+
+    if (preferences.maxKilometers) {
+      items.push({
+        label: "Max Kilometers",
+        value: `${preferences.maxKilometers.toLocaleString()} km`,
+      });
+    }
+
+    if (preferences.minYear || preferences.maxYear) {
+      const yearRange = `${preferences.minYear || "Any"} - ${preferences.maxYear || "Current"}`;
+      items.push({ label: "Year Range", value: yearRange });
+    }
+
+    if (preferences.preferredColors && preferences.preferredColors.length > 0) {
+      items.push({
+        label: "Preferred Colors",
+        value: preferences.preferredColors
+          .map((color) => color.charAt(0).toUpperCase() + color.slice(1))
+          .join(", "),
+      });
+    }
+
+    if (preferences.minBudget || preferences.maxBudget) {
+      const minBudget = preferences.minBudget
+        ? `${parseFloat(preferences.minBudget).toLocaleString()}€`
+        : "No min";
+      const maxBudget = preferences.maxBudget
+        ? `${parseFloat(preferences.maxBudget).toLocaleString()}€`
+        : "No max";
+      items.push({
+        label: "Budget Range",
+        value: `${minBudget} - ${maxBudget}`,
+      });
+    }
+
+    if (
+      preferences.needsFinancing !== null &&
+      preferences.needsFinancing !== undefined
+    ) {
+      items.push({
+        label: "Needs Financing",
+        value: preferences.needsFinancing ? "Yes" : "No",
+      });
+    }
+
+    return items;
   };
 
   return (
@@ -156,7 +289,7 @@ export function LeadsDetailView({ lead }: LeadsDetailViewProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Contact Information Card */}
         <Card className="h-full">
           <CardHeader className="pb-2">
@@ -193,7 +326,7 @@ export function LeadsDetailView({ lead }: LeadsDetailViewProps) {
                 <Info className="h-4 w-4" />
                 Contact Information
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-2">
+              <div className="grid grid-cols-1 gap-3 pl-2">
                 <div className="space-y-1">
                   <p className="text-xs font-medium text-muted-foreground">
                     Email
@@ -234,7 +367,7 @@ export function LeadsDetailView({ lead }: LeadsDetailViewProps) {
                 <Briefcase className="h-4 w-4" />
                 Business Details
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-2">
+              <div className="grid grid-cols-1 gap-3 pl-2">
                 <div className="space-y-1">
                   <p className="text-xs font-medium text-muted-foreground">
                     Type
@@ -269,7 +402,7 @@ export function LeadsDetailView({ lead }: LeadsDetailViewProps) {
                   )}
                 </div>
 
-                <div className="space-y-1 sm:col-span-2">
+                <div className="space-y-1">
                   <p className="text-xs font-medium text-muted-foreground">
                     Tags
                   </p>
@@ -373,6 +506,57 @@ export function LeadsDetailView({ lead }: LeadsDetailViewProps) {
                 </p>
               )}
             </div>
+
+            {lead.followUpCount !== null && lead.followUpCount > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Follow-up Count
+                </p>
+                <Badge className="text-xs">
+                  {lead.followUpCount} attempt
+                  {lead.followUpCount !== 1 ? "s" : ""}
+                </Badge>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Vehicle Preferences Card */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2">
+              <Car className="h-5 w-5 text-primary" />
+              Vehicle Preferences
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {lead.preferences ? (
+              <div className="space-y-3">
+                {formatVehiclePreferences(lead.preferences).map(
+                  (item, index) => (
+                    <div key={index} className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {item.label}
+                      </p>
+                      <p className="text-sm font-medium">{item.value}</p>
+                    </div>
+                  )
+                )}
+                {formatVehiclePreferences(lead.preferences).length === 0 && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Settings className="h-4 w-4" />
+                    <p className="text-sm italic">
+                      No specific preferences recorded
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Settings className="h-4 w-4" />
+                <p className="text-sm italic">No preferences recorded yet</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

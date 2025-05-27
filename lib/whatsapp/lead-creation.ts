@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { whatsappBotAPI } from "./utils/whatsapp-bot";
 import { saveWhatsAppMessage } from "./message-storage";
 
-export interface CreateLeadWithWhatsAppParams {
+export interface CreateLeadParams {
   name: string;
   phone: string;
   email?: string | null;
@@ -15,6 +15,7 @@ export interface CreateLeadWithWhatsAppParams {
 
 /**
  * Creates a lead and optionally sends a WhatsApp welcome message
+ * Unified function for both manual and automated lead creation
  */
 export async function createLeadWithWhatsApp({
   name,
@@ -23,7 +24,7 @@ export async function createLeadWithWhatsApp({
   status = "nuevo",
   campaignId,
   sendWelcomeMessage = true,
-}: CreateLeadWithWhatsAppParams) {
+}: CreateLeadParams) {
   try {
     // Check if lead already exists
     const existingLead = await db
@@ -33,10 +34,8 @@ export async function createLeadWithWhatsApp({
       .limit(1);
 
     if (existingLead.length > 0) {
-      console.log(`Lead already exists for phone: ${phone}`);
       return existingLead[0];
     }
-
     // Create new lead
     const [newLead] = await db
       .insert(leads)
@@ -47,16 +46,14 @@ export async function createLeadWithWhatsApp({
         status,
         campaignId,
         lastContactedAt: sendWelcomeMessage ? new Date() : undefined,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       })
       .returning();
-
-    console.log(`Created new lead: ${name} (${phone})`);
-
     // Send welcome message if requested and phone is provided
     if (sendWelcomeMessage && phone) {
       await sendWelcomeMessageToLead(newLead.id, phone, name);
     }
-
     return newLead;
   } catch (error) {
     console.error("Error creating lead with WhatsApp:", error);
@@ -73,13 +70,12 @@ export async function sendWelcomeMessageToLead(
   name: string
 ): Promise<void> {
   try {
-    console.log(`Sending welcome message to lead ${leadId} at ${phone}`);
-
     // Format phone number (ensure it starts with +)
     const formattedPhone = phone.startsWith("+") ? phone : `+${phone}`;
-
+    // Extract first name
+    const firstName = name.trim().split(" ")[0];
     // Send welcome message
-    const welcomeMessage = `¡Hola ${name}! Soy Pedro de Carrera Cars 👋 ¿Estás buscando algún vehículo en especial o solo estás viendo opciones?`;
+    const welcomeMessage = `Hola ${firstName}! Soy Pedro de Carrera Cars. ¿Estás buscando algún vehículo en especial o solo estás viendo opciones?`;
 
     const sentMessage = await whatsappBotAPI.sendBotMessage(
       formattedPhone,
@@ -104,10 +100,9 @@ export async function sendWelcomeMessageToLead(
       .set({
         status: "contactado" as (typeof leadStatusEnum.enumValues)[number],
         lastContactedAt: new Date(),
+        updatedAt: new Date(),
       })
       .where(eq(leads.id, leadId));
-
-    console.log(`✅ Welcome message sent to lead ${leadId}`);
   } catch (error) {
     console.error(`Error sending welcome message to lead ${leadId}:`, error);
     // Don't throw here to avoid breaking lead creation
@@ -125,18 +120,13 @@ export async function sendWelcomeToUncontactedLeads(): Promise<void> {
       .from(leads)
       .where(eq(leads.status, "nuevo"));
 
-    console.log(`Found ${uncontactedLeads.length} uncontacted leads`);
-
     for (const lead of uncontactedLeads) {
       if (lead.phone) {
         await sendWelcomeMessageToLead(lead.id, lead.phone, lead.name);
-
         // Add small delay between messages to avoid rate limiting
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
     }
-
-    console.log(`✅ Processed ${uncontactedLeads.length} uncontacted leads`);
   } catch (error) {
     console.error(
       "Error sending welcome messages to uncontacted leads:",

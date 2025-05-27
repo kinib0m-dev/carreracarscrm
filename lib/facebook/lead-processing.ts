@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { campaigns, webhookLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getFacebookFormData } from "./facebook-api";
-import { createLeadWithWhatsApp } from "@/lib/whatsapp/lead-creation-helper";
+import { createLeadWithWhatsApp } from "../whatsapp/lead-creation";
 
 export async function processFacebookLead(leadData: FacebookLeadgenValue) {
   try {

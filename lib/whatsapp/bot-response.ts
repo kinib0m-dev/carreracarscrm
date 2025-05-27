@@ -262,14 +262,24 @@ ${context}
     let leadUpdate: LeadUpdate | undefined;
 
     // Look for the LEAD_UPDATE_JSON in the response
-    const jsonMatch = responseText.match(/LEAD_UPDATE_JSON:\s*(\{[\s\S]*?\})/);
+    const jsonMatch =
+      responseText.match(
+        /LEAD_UPDATE_JSON:\s*```?\s*json\s*(\{[\s\S]*?\})\s*```?/i
+      ) || responseText.match(/LEAD_UPDATE_JSON:\s*(\{[\s\S]*?\})/);
+
     if (jsonMatch) {
       try {
         const updateData = JSON.parse(jsonMatch[1]);
 
-        // Remove the JSON from the bot response
+        // Remove the JSON from the bot response completely
         botResponse = responseText
-          .replace(/LEAD_UPDATE_JSON:[\s\S]*/, "")
+          .replace(
+            /LEAD_UPDATE_JSON:[\s\S]*?```?\s*json\s*\{[\s\S]*?\}\s*```?/gi,
+            ""
+          )
+          .replace(/LEAD_UPDATE_JSON:\s*\{[\s\S]*?\}/gi, "")
+          .replace(/```\s*json[\s\S]*?```/gi, "")
+          .replace(/```[\s\S]*?```/gi, "")
           .trim();
 
         // Extract the lead update data
@@ -296,8 +306,14 @@ ${context}
         // Always update contact timestamps
         leadUpdate.lastContactedAt = new Date();
         leadUpdate.lastMessageAt = new Date();
+
+        console.log("✅ Parsed lead update:", leadUpdate);
       } catch (error) {
         console.error("Error parsing lead update JSON:", error);
+        // Clean the response even if JSON parsing fails
+        botResponse = responseText
+          .replace(/LEAD_UPDATE_JSON:[\s\S]*$/gi, "")
+          .trim();
       }
     }
 

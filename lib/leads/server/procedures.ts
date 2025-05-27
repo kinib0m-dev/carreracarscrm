@@ -68,11 +68,11 @@ export const leadRouter = createTRPCRouter({
 
         // If phone number is provided, use the WhatsApp-enabled creation
         if (input.phone) {
-          const { createLeadWithWelcomeMessage } = await import(
-            "@/lib/whatsapp/manual-lead-creation"
+          const { createLeadWithWhatsApp } = await import(
+            "@/lib/whatsapp/lead-creation"
           );
 
-          const newLead = await createLeadWithWelcomeMessage({
+          const newLead = await createLeadWithWhatsApp({
             name: input.name,
             phone: input.phone,
             email: input.email || undefined,

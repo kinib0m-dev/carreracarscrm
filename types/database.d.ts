@@ -1,4 +1,4 @@
-import { leadTypeEnum, timeframeEnum } from "@/db/schema";
+import { leadTypeEnum, timeframeEnum, leadStatusEnum } from "@/db/schema";
 
 export interface Lead {
   id: string;
@@ -25,6 +25,16 @@ export interface LeadUpdateData {
   budget?: string | null;
   expectedPurchaseTimeframe?: (typeof timeframeEnum.enumValues)[number];
   type?: (typeof leadTypeEnum.enumValues)[number];
+
+  // Vehicle preferences
+  preferredVehicleType?: string | null;
+  preferredBrand?: string | null;
+  preferredFuelType?: string | null;
+  maxKilometers?: number | null;
+  minYear?: number | null;
+  maxYear?: number | null;
+  needsFinancing?: boolean | null;
+
   lastContactedAt?: Date | null;
   lastMessageAt?: Date | null;
   nextFollowUpDate?: Date | null;
@@ -76,4 +86,23 @@ export interface WebhookLog {
   payload: string;
   status: string;
   createdAt: Date;
+}
+
+// Lead preferences if using separate table
+export interface LeadPreferencesRecord {
+  id: string;
+  leadId: string;
+  preferredVehicleType?: string | null;
+  preferredBrand?: string | null;
+  preferredFuelType?: string | null;
+  maxKilometers?: number | null;
+  minYear?: number | null;
+  maxYear?: number | null;
+  needsFinancing?: boolean | null;
+  preferredTransmission?: string | null;
+  preferredColors?: string[] | null;
+  minBudget?: number | null;
+  maxBudget?: number | null;
+  createdAt: Date;
+  updatedAt: Date;
 }

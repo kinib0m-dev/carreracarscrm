@@ -11,6 +11,7 @@ import {
   customType,
   date,
   numeric,
+  unique,
 } from "drizzle-orm/pg-core";
 import type { AdapterAccountType } from "next-auth/adapters";
 
@@ -213,6 +214,36 @@ export const leads = pgTable("leads", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const leadPreferences = pgTable(
+  "lead_preferences",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leadId: uuid("lead_id")
+      .notNull()
+      .references(() => leads.id, { onDelete: "cascade" }),
+    // Vehicle preferences
+    preferredVehicleType: text("preferred_vehicle_type"),
+    preferredBrand: text("preferred_brand"),
+    preferredFuelType: text("preferred_fuel_type"),
+    maxKilometers: integer("max_kilometers"),
+    minYear: integer("min_year"),
+    maxYear: integer("max_year"),
+    needsFinancing: boolean("needs_financing"),
+    // Additional preferences
+    preferredTransmission: text("preferred_transmission"),
+    preferredColors: text("preferred_colors").array(),
+    // Budget preferences
+    minBudget: numeric("min_budget", { precision: 10, scale: 2 }),
+    maxBudget: numeric("max_budget", { precision: 10, scale: 2 }),
+    // Timestamps
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    uniqueLeadId: unique("unique_lead_preferences").on(table.leadId),
+  })
+);
 
 // -------------------------------------- LEAD TAGS --------------------------------------
 export const tags = pgTable("tags", {

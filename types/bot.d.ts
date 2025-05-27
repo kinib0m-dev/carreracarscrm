@@ -1,11 +1,27 @@
 export interface LeadUpdate {
-  status?: LeadStatus;
+  // Core lead fields
+  status?: string;
   budget?: string;
   expectedPurchaseTimeframe?: string;
-  type?: LeadType;
+  type?: string;
   lastContactedAt?: Date;
   lastMessageAt?: Date;
   nextFollowUpDate?: Date;
+
+  // Vehicle preferences
+  preferredVehicleType?: string;
+  preferredBrand?: string;
+  preferredFuelType?: string;
+  maxKilometers?: number;
+  minYear?: number;
+  maxYear?: number;
+  needsFinancing?: boolean;
+
+  // Additional preferences (optional for future expansion)
+  preferredTransmission?: string;
+  preferredColors?: string[];
+  minBudget?: number;
+  maxBudget?: number;
 }
 
 export interface BotResponse {
@@ -42,4 +58,32 @@ export interface RelevantCar {
   matricula?: string | null;
   vendido: boolean;
   similarity: number;
+}
+
+// Enhanced lead preferences interface
+export interface LeadPreferences {
+  preferredVehicleType?: string;
+  preferredBrand?: string;
+  preferredFuelType?: string;
+  maxKilometers?: number;
+  minYear?: number;
+  maxYear?: number;
+  needsFinancing?: boolean;
+  preferredTransmission?: string;
+  preferredColors?: string[];
+  minBudget?: number;
+  maxBudget?: number;
+}
+
+// Vehicle matching criteria for recommendations
+export interface VehicleMatchCriteria {
+  vehicleType?: string;
+  brand?: string;
+  fuelType?: string;
+  maxKilometers?: number;
+  yearRange?: { min?: number; max?: number };
+  budgetRange?: { min?: number; max?: number };
+  transmission?: string;
+  colors?: string[];
+  needsFinancing?: boolean;
 }

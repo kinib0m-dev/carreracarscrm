@@ -1,7 +1,8 @@
 import { db } from "@/db";
-import { leads, campaigns, webhookLogs } from "@/db/schema";
+import { campaigns, webhookLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getFacebookFormData } from "./facebook-api";
+import { createLeadWithWhatsApp } from "@/lib/whatsapp/lead-creation-helper";
 
 export async function processFacebookLead(leadData: FacebookLeadgenValue) {
   try {
@@ -49,17 +50,28 @@ export async function processFacebookLead(leadData: FacebookLeadgenValue) {
       }
     }
 
-    // Create the lead in your database
-    const [newLead] = await db
-      .insert(leads)
-      .values({
-        name: name || "Unknown Name",
-        email: email || null,
-        phone: phone || null,
-        status: "nuevo",
-        campaignId: campaignResult.length > 0 ? campaignResult[0].id : null,
-      })
-      .returning();
+    // Format phone number for Spain if it doesn't have country code
+    let formattedPhone = phone;
+    if (phone && !phone.startsWith("+")) {
+      // Assume Spanish number if no country code
+      if (
+        phone.startsWith("6") ||
+        phone.startsWith("7") ||
+        phone.startsWith("9")
+      ) {
+        formattedPhone = `+34${phone}`;
+      }
+    }
+
+    // Create the lead using the WhatsApp helper
+    const newLead = await createLeadWithWhatsApp({
+      name: name || "Facebook Lead",
+      phone: formattedPhone,
+      email: email || null,
+      status: "nuevo",
+      campaignId: campaignResult.length > 0 ? campaignResult[0].id : null,
+      sendWelcomeMessage: !!formattedPhone, // Only send if we have a phone number
+    });
 
     // Update the webhook log
     await db
@@ -70,6 +82,7 @@ export async function processFacebookLead(leadData: FacebookLeadgenValue) {
       })
       .where(eq(webhookLogs.payload, JSON.stringify(leadData)));
 
+    console.log(`✅ Processed Facebook lead: ${name} (${formattedPhone})`);
     return newLead;
   } catch (error) {
     console.error("Error processing Facebook lead:", error);

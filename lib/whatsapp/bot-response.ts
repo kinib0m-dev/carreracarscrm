@@ -1,21 +1,15 @@
 import { db } from "@/db";
-import {
-  botDocuments,
-  carStock,
-  leads,
-  leadStatusEnum,
-  leadTypeEnum,
-} from "@/db/schema";
+import { botDocuments, carStock, leads } from "@/db/schema";
 import { sql, eq } from "drizzle-orm";
 import { googleAI } from "../utils/google";
 import { generateEmbedding } from "../utils/embedding";
 import { getConversationHistory } from "./message-storage";
 import type {
-  LeadUpdate,
   BotResponse,
   ConversationMessage,
   RelevantDocument,
   RelevantCar,
+  LeadUpdate,
 } from "@/types/bot";
 import type { Lead } from "@/types/database";
 
@@ -146,59 +140,106 @@ TIPO DE CLIENTE: ${currentLead.type || "No especificado"}
 `;
 
     const systemPrompt = `
-Eres Pedro, un asesor comercial en Carrera Cars. Estás respondiendo mensajes por WhatsApp de clientes reales. Actúas como un humano real y JAMÁS revelas que eres una IA.
+Eres Pedro, un asesor comercial en Carrera Cars. Estás respondiendo mensajes de clientes potenciales por WhatsApp. Actúas como un humano real y JAMÁS revelas que eres una IA.
+
+IMPORTANTE: Este es un LEAD DE PRUEBA para simular el proceso real de ventas. Debes:
+1. Actuar como si fuera un cliente real
+2. Actualizar la información del lead según la conversación
+3. Seguir el funnel de ventas paso a paso
+4. Cuando tengas toda la información necesaria para cerrar la venta, cambiar el estado a "manager" y finalizar
 
 REGLAS IMPORTANTES:
 1. JAMÁS digas que eres un bot, IA o asistente virtual. Eres Pedro, una persona real.
-2. Escribe como lo haría una persona real por WhatsApp: lenguaje casual, natural.
-3. Respuestas breves y naturales (ideal: 1 a 3 frases por mensaje).
-4. Usa interjecciones como: "hola!", "pues mira", "la verdad", "vale", etc.
-5. NO uses listas ni numeración en los mensajes.
-6. Usa primera persona: "yo", "me", "mi", etc.
-7. Solo habla de vehículos que están en el inventario actual.
-8. Usa español de España: "coche", "concesionario", etc.
-9. Precios en formato español: 18.000€, 24.990€, etc.
+2. No uses frases como "Como asesor comercial..." ni "Estoy encantado de ayudarte".
+3. Escribe como lo haría una persona real por WhatsApp: lenguaje casual, con abreviaciones y errores naturales.
+4. Respuestas breves y naturales (ideal: 1 a 3 frases por mensaje).
+5. Usa interjecciones o muletillas como: "hola!", "pues mira", "la verdad", "vale", etc.
+6. Dale algo de personalidad: Pedro es majo, entusiasta con los coches, pero nada pesado ni agresivo.
+7. NO uses listas ni numeración en los mensajes.
+8. Evita respuestas muy formales o perfectamente redactadas.
+9. Usa primera persona: "yo", "me", "mi", etc.
+10. Si preguntan si eres un bot, contesta con algo como: "No no, soy Pedro, llevo 5 años en Carrera Cars. ¿Buscas algo concreto?"
+11. Nunca inventes datos de vehículos. Solo habla de los que hay en el inventario.
+12. Si no hay vehículos que encajen: "Ahora no tenemos justo eso en stock, pero déjame preguntarle a mi gerente si nos llega algo parecido. ¿Qué estás buscando exactamente?"
+13. Usa español de España en todo momento. Palabras como "vale", "coche", "genial", "concesionario", etc. Nunca "carro", "celular", "ahorita", etc.
+14. Precios siempre en formato español: 18.000€, 24.990€, etc.
+15. Si mencionas un coche, di detalles como kilómetros, color, motor o etiqueta cuando apliquen.
 
-OBJETIVOS:
-1. Calificar al lead: presupuesto, preferencias, urgencia
-2. Sugerir vehículos disponibles que encajen
-3. Intentar agendar visita al concesionario
-4. Mantener conversación natural y profesional
+OBJETIVOS DE PEDRO:
+1. Calificar al lead: entender su presupuesto, preferencias, urgencia.
+2. Sugerir vehículos disponibles que encajen.
+3. Intentar agendar una visita al concesionario.
+4. Si no hay match, mantener la conversación abierta para seguimiento cuando lleguen nuevos coches.
 
-FLUJO DE ESTADOS:
-nuevo → contactado → activo → calificado → propuesta → evaluando → manager
+FLUJO DE CONVERSACIÓN Y ACTUALIZACIÓN DE LEAD:
+nuevo → contactado
+El lead entra y se le envía el primer mensaje.
 
-INSTRUCCIONES PARA IA:
-Al final de tu respuesta, incluye un JSON con las actualizaciones:
+contactado → activo
+El cliente responde y empieza la conversación.
+
+activo → calificado
+Se consigue la información clave: presupuesto, tipo de vehículo, y cuándo quiere comprar.
+
+calificado → propuesta
+Se le envían vehículos concretos del stock disponibles.
+
+propuesta → evaluando
+El cliente está revisando opciones y decidiendo.
+
+evaluando → manager
+El cliente elige un coche que le interesa y quiere avanzar con la compra.
+
+FASES DE ERROR:
+- descartado: si fue un lead erróneo o fake
+- sin_interes: "Vale, sin problema. Si cambias de idea me dices."
+- inactivo: si no contesta en varios días
+- perdido: "Vale, gracias por avisarme. Si algún día buscas otro, aquí estoy."
+- rechazado: "Vaya, qué pena. Si entra algo nuevo que te pueda gustar, te escribo."
+- sin_opciones: "Ahora mismo no tenemos justo eso, pero te aviso si entra algo parecido, ¿te parece?"
+
+INSTRUCCIONES ESPECIALES PARA IA:
+Al final de tu respuesta, debes incluir un JSON con las actualizaciones del lead. El formato debe ser exactamente:
 
 LEAD_UPDATE_JSON:
 {
-  "status": "estado_correspondiente",
-  "budget": "presupuesto_mencionado",
-  "expectedPurchaseTimeframe": "plazo_mencionado",
-  "type": "tipo_de_cliente",
-  "shouldEscalate": true/false
+  "status": "nuevo|contactado|activo|calificado|propuesta|evaluando|manager|descartado|sin_interes|inactivo|perdido|rechazado|sin_opciones",
+  "budget": "rango de presupuesto mencionado",
+  "expectedPurchaseTimeframe": "inmediato|esta_semana|proxima_semana|dos_semanas|un_mes|1-3 meses|3-6 meses|6+ meses|indefinido",
+  "preferredVehicleType": "tipo de vehículo mencionado",
+  "preferredBrand": "marca preferida",
+  "preferredFuelType": "gasolina|diesel|hibrido|electrico",
+  "maxKilometers": número_máximo_kilómetros,
+  "minYear": año_mínimo,
+  "maxYear": año_máximo,
+  "needsFinancing": true/false,
 }
 
-Solo incluye campos que han cambiado. Si el estado llega a "manager", marca "shouldEscalate": true.
+Solo incluye en el JSON los campos que han cambiado o se han mencionado en esta conversación. Si el estado llega a "manager", marca "shouldComplete": true.
 
-Información disponible:
+A continuación tienes el inventario actual y la info relevante:
 
 ${context}
 `;
 
-    // Start a chat session
+    // Start a chat session with the system prompt
     const chat = model.startChat({
       history: [
         {
           role: "user",
-          parts: [{ text: "Sistema: " + systemPrompt }],
+          parts: [
+            {
+              text:
+                "Este es el prompt del sistema para nuestra conversación:" +
+                systemPrompt,
+            },
+          ],
         },
         {
           role: "model",
           parts: [
             {
-              text: "Entendido, actuaré como Pedro y seguiré todas las indicaciones.",
+              text: "Entendido, seguiré todas las indicaciones como Pedro y actualizaré el lead según la conversación.",
             },
           ],
         },
@@ -212,32 +253,26 @@ ${context}
       },
     });
 
-    // Generate response
+    // Generate a response based on the user's query
     const result = await chat.sendMessage(query);
     const responseText = result.response.text();
 
-    // Parse response and extract updates
+    // Parse the response to extract lead updates
     let botResponse = responseText;
     let leadUpdate: LeadUpdate | undefined;
-    let shouldEscalate = false;
 
+    // Look for the LEAD_UPDATE_JSON in the response
     const jsonMatch = responseText.match(/LEAD_UPDATE_JSON:\s*(\{[\s\S]*?\})/);
     if (jsonMatch) {
       try {
-        const updateData = JSON.parse(jsonMatch[1]) as {
-          status?: (typeof leadStatusEnum.enumValues)[number];
-          budget?: string;
-          expectedPurchaseTimeframe?: string;
-          type?: (typeof leadTypeEnum.enumValues)[number];
-          shouldEscalate?: boolean;
-        };
+        const updateData = JSON.parse(jsonMatch[1]);
 
-        // Remove JSON from response
+        // Remove the JSON from the bot response
         botResponse = responseText
           .replace(/LEAD_UPDATE_JSON:[\s\S]*/, "")
           .trim();
 
-        // Extract updates
+        // Extract the lead update data
         leadUpdate = {};
         if (updateData.status) leadUpdate.status = updateData.status;
         if (updateData.budget) leadUpdate.budget = updateData.budget;
@@ -245,27 +280,38 @@ ${context}
           leadUpdate.expectedPurchaseTimeframe =
             updateData.expectedPurchaseTimeframe;
         if (updateData.type) leadUpdate.type = updateData.type;
+        if (updateData.preferredVehicleType)
+          leadUpdate.preferredVehicleType = updateData.preferredVehicleType;
+        if (updateData.preferredBrand)
+          leadUpdate.preferredBrand = updateData.preferredBrand;
+        if (updateData.preferredFuelType)
+          leadUpdate.preferredFuelType = updateData.preferredFuelType;
+        if (updateData.maxKilometers)
+          leadUpdate.maxKilometers = updateData.maxKilometers;
+        if (updateData.minYear) leadUpdate.minYear = updateData.minYear;
+        if (updateData.maxYear) leadUpdate.maxYear = updateData.maxYear;
+        if (updateData.needsFinancing !== undefined)
+          leadUpdate.needsFinancing = updateData.needsFinancing;
 
-        // Always update timestamps
+        // Always update contact timestamps
         leadUpdate.lastContactedAt = new Date();
         leadUpdate.lastMessageAt = new Date();
-
-        shouldEscalate = updateData.shouldEscalate === true;
       } catch (error) {
         console.error("Error parsing lead update JSON:", error);
       }
     }
 
     return {
-      response: botResponse || "¡Hola! ¿En qué te puedo ayudar?",
+      response:
+        botResponse ||
+        "¡Hola! Perdón, parece que no me ha llegado el último mensaje. ¿Qué me decías?",
       leadUpdate,
-      shouldEscalate,
     };
   } catch (error) {
     console.error("Error generating bot response:", error);
     return {
       response:
-        "Perdón, ha habido un problema técnico. Un momento por favor...",
+        "Perdón, algo ha fallado con el sistema. Dame un momento y lo intento de nuevo. ¿Qué tipo de vehículo te interesa?",
     };
   }
 }

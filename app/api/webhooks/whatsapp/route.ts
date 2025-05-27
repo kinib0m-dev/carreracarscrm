@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { leads, leadStatusEnum, timeframeEnum, webhookLogs } from "@/db/schema";
+import {
+  leads,
+  leadStatusEnum,
+  timeframeEnum,
+  leadTypeEnum,
+  webhookLogs,
+} from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { generateWhatsAppBotResponse } from "@/lib/whatsapp/bot-response";
 import {
@@ -17,51 +23,34 @@ import type {
   WhatsAppStatus,
   WhatsAppAPIResponse,
 } from "@/types/whatsapp";
-import type { Lead, LeadUpdateData } from "@/types/database";
+import type { Lead } from "@/types/database";
 
 const WEBHOOK_VERIFY_TOKEN = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
 
 // GET - Webhook verification
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  try {
-    const searchParams = request.nextUrl.searchParams;
+  const searchParams = request.nextUrl.searchParams;
 
-    const mode = searchParams.get("hub.mode");
-    const token = searchParams.get("hub.verify_token");
-    const challenge = searchParams.get("hub.challenge");
+  const mode = searchParams.get("hub.mode");
+  const token = searchParams.get("hub.verify_token");
+  const challenge = searchParams.get("hub.challenge");
 
-    console.log("WhatsApp verification attempt:", {
-      mode,
-      token: token ? "***" : "missing",
-      challenge,
-    });
-
-    if (mode === "subscribe" && token === WEBHOOK_VERIFY_TOKEN && challenge) {
-      console.log("WhatsApp webhook verified successfully");
-      return new NextResponse(challenge, {
-        status: 200,
-        headers: { "Content-Type": "text/plain" },
-      });
-    }
-
-    console.log("WhatsApp webhook verification failed - invalid parameters");
-    return new NextResponse("Forbidden", { status: 403 });
-  } catch (error) {
-    console.error("Error in WhatsApp webhook verification:", error);
-    return new NextResponse("Internal Server Error", { status: 500 });
+  if (mode === "subscribe" && token === WEBHOOK_VERIFY_TOKEN) {
+    console.log("WhatsApp webhook verified successfully");
+    return new NextResponse(challenge, { status: 200 });
   }
+
+  console.log("WhatsApp webhook verification failed");
+  return new NextResponse("Forbidden", { status: 403 });
 }
 
 // POST - Handle incoming messages and status updates
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    const body: WhatsAppIncomingMessage = await request.json();
     console.log("WhatsApp webhook POST received");
 
-    // Add request logging
-    const body: WhatsAppIncomingMessage = await request.json();
-    console.log("WhatsApp webhook body:", JSON.stringify(body, null, 2));
-
-    // Log the webhook event first
+    // Log the webhook event
     await logWebhookEvent("whatsapp_incoming", body);
 
     // Process the webhook
@@ -71,23 +60,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return new NextResponse("OK", { status: 200 });
   } catch (error) {
     console.error("Error processing WhatsApp webhook:", error);
-
-    // Log the error in webhook logs
-    try {
-      await logWebhookEvent("whatsapp_error", {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    } catch (logError) {
-      console.error("Failed to log webhook error:", logError);
-    }
-
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
 
 async function logWebhookEvent(
   eventType: string,
-  payload: WhatsAppIncomingMessage | Record<string, unknown>
+  payload: WhatsAppIncomingMessage
 ): Promise<void> {
   try {
     await db.insert(webhookLogs).values({
@@ -95,7 +74,7 @@ async function logWebhookEvent(
       payload: JSON.stringify(payload),
       status: "received",
     });
-    console.log(`Logged webhook event: ${eventType}`);
+    console.log("Logged webhook event:", eventType);
   } catch (error) {
     console.error("Error logging webhook event:", error);
   }
@@ -104,46 +83,25 @@ async function logWebhookEvent(
 async function processWhatsAppWebhook(
   body: WhatsAppIncomingMessage
 ): Promise<void> {
-  console.log("Processing WhatsApp webhook...");
-
   if (body.object !== "whatsapp_business_account") {
-    console.log("Not a WhatsApp business account webhook, skipping");
-    return;
-  }
-
-  if (!body.entry || body.entry.length === 0) {
-    console.log("No entries in webhook, skipping");
     return;
   }
 
   for (const entry of body.entry) {
     console.log("Processing entry:", entry.id);
-
-    if (!entry.changes || entry.changes.length === 0) {
-      console.log("No changes in entry, skipping");
-      continue;
-    }
-
     for (const change of entry.changes) {
-      console.log("Processing change:", change.field);
-
       if (change.field === "messages") {
         const value = change.value;
-        console.log(
-          "Processing messages value:",
-          JSON.stringify(value, null, 2)
-        );
 
         // Process new contacts
-        if (value.contacts && value.contacts.length > 0) {
-          console.log("Processing contacts...");
+        if (value.contacts) {
           for (const contact of value.contacts) {
             await handleNewContact(contact);
           }
         }
 
         // Process incoming messages
-        if (value.messages && value.messages.length > 0) {
+        if (value.messages) {
           console.log("Processing messages...");
           for (const message of value.messages) {
             await handleIncomingMessage(message);
@@ -151,8 +109,7 @@ async function processWhatsAppWebhook(
         }
 
         // Process message status updates
-        if (value.statuses && value.statuses.length > 0) {
-          console.log("Processing status updates...");
+        if (value.statuses) {
           for (const status of value.statuses) {
             await handleMessageStatus(status);
           }
@@ -166,7 +123,7 @@ async function handleNewContact(contact: WhatsAppContact): Promise<void> {
   try {
     const { wa_id, profile } = contact;
     const phone = `+${wa_id}`;
-    const name = profile?.name || "WhatsApp User";
+    const name = profile.name || "WhatsApp User";
 
     console.log(`Processing new contact: ${name} (${phone})`);
 
@@ -189,14 +146,56 @@ async function handleNewContact(contact: WhatsAppContact): Promise<void> {
         })
         .returning();
 
-      console.log(
-        `Created new lead: ${name} (${phone}) with ID: ${newLead.id}`
-      );
+      console.log(`Created new lead: ${name} (${phone})`);
+
+      // Send welcome message to new lead
+      await sendWelcomeMessage(phone, name, newLead.id);
     } else {
       console.log(`Lead already exists for phone: ${phone}`);
     }
   } catch (error) {
     console.error("Error handling new contact:", error);
+  }
+}
+
+async function sendWelcomeMessage(
+  phone: string,
+  name: string,
+  leadId: string
+): Promise<void> {
+  try {
+    console.log(`Sending welcome message to ${phone}`);
+
+    // Send welcome message
+    const welcomeMessage = `¡Hola ${name}! Soy Pedro de Carrera Cars 👋 ¿Estás buscando algún vehículo en especial o solo estás viendo opciones?`;
+
+    const sentMessage: WhatsAppAPIResponse =
+      await whatsappBotAPI.sendBotMessage(phone, welcomeMessage);
+
+    if (sentMessage?.messages?.[0]) {
+      // Save the welcome message to database
+      await saveWhatsAppMessage({
+        leadId,
+        whatsappMessageId: sentMessage.messages[0].id,
+        direction: "outbound",
+        content: welcomeMessage,
+        phoneNumber: phone,
+        status: "sent",
+      });
+
+      // Update lead status to "contactado"
+      await db
+        .update(leads)
+        .set({
+          status: "contactado" as (typeof leadStatusEnum.enumValues)[number],
+          lastContactedAt: new Date(),
+        })
+        .where(eq(leads.id, leadId));
+
+      console.log(`✅ Welcome message sent to ${phone}`);
+    }
+  } catch (error) {
+    console.error("Error sending welcome message:", error);
   }
 }
 
@@ -206,21 +205,20 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
     const phone = `+${from}`;
     const messageText = text?.body;
 
-    console.log(`Processing message from ${phone}: ${messageText}`);
-
     if (!messageText) {
       console.log("Received non-text message, skipping");
       return;
     }
 
-    // Mark message as read first
-    try {
-      await whatsappBotAPI.markAsRead(messageId);
-      console.log(`Marked message ${messageId} as read`);
-    } catch (markError) {
-      console.error("Error marking message as read:", markError);
-      // Continue processing even if mark as read fails
-    }
+    console.log(`Received message from ${phone}: ${messageText}`);
+
+    // Mark message as read
+    const readResponse = await whatsappBotAPI.markAsRead(messageId);
+    console.log(
+      "WhatsApp API response status:",
+      readResponse ? "200" : "error"
+    );
+    console.log("WhatsApp API response data:", readResponse);
 
     // Find or create the lead
     let lead = await db
@@ -231,7 +229,6 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
       .then((results) => results[0] as Lead | undefined);
 
     if (!lead) {
-      console.log(`Creating new lead for phone: ${phone}`);
       // Create new lead if doesn't exist
       const [newLead] = await db
         .insert(leads)
@@ -245,7 +242,9 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
         .returning();
 
       lead = newLead as Lead;
-      console.log(`Created new lead with ID: ${lead.id}`);
+      console.log(`Created new lead for existing conversation: ${phone}`);
+    } else {
+      console.log(`Lead already exists for phone: ${phone}`);
     }
 
     // Save incoming message to database
@@ -268,20 +267,39 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
       shouldEscalate,
     } = await generateWhatsAppBotResponse(messageText, lead.id);
 
-    console.log(`Generated bot response: ${botResponse}`);
+    console.log("Generated bot response:", botResponse);
 
-    // Update lead information if needed
-    if (leadUpdate) {
-      console.log("Updating lead with new information...");
-      const updateData: LeadUpdateData = { updatedAt: new Date() };
+    // Apply lead updates to database with enhanced fields
+    if (leadUpdate && Object.keys(leadUpdate).length > 0) {
+      console.log("Applying lead updates:", leadUpdate);
 
-      if (leadUpdate.status) updateData.status = leadUpdate.status;
+      // Create properly typed update data for leads table
+      const updateData: Partial<{
+        status: (typeof leadStatusEnum.enumValues)[number];
+        budget: string;
+        expectedPurchaseTimeframe: (typeof timeframeEnum.enumValues)[number];
+        type: (typeof leadTypeEnum.enumValues)[number];
+        lastContactedAt: Date;
+        lastMessageAt: Date;
+        nextFollowUpDate: Date;
+        updatedAt: Date;
+      }> = { updatedAt: new Date() };
+
+      // Core lead fields - only add fields that exist in the leads table
+      if (leadUpdate.status) {
+        updateData.status =
+          leadUpdate.status as (typeof leadStatusEnum.enumValues)[number];
+        console.log(`Updating status to: ${leadUpdate.status}`);
+      }
       if (leadUpdate.budget) updateData.budget = leadUpdate.budget;
       if (leadUpdate.expectedPurchaseTimeframe) {
         updateData.expectedPurchaseTimeframe =
           leadUpdate.expectedPurchaseTimeframe as (typeof timeframeEnum.enumValues)[number];
       }
-      if (leadUpdate.type) updateData.type = leadUpdate.type;
+      if (leadUpdate.type) {
+        updateData.type =
+          leadUpdate.type as (typeof leadTypeEnum.enumValues)[number];
+      }
       if (leadUpdate.lastContactedAt)
         updateData.lastContactedAt = leadUpdate.lastContactedAt;
       if (leadUpdate.lastMessageAt)
@@ -289,20 +307,63 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
       if (leadUpdate.nextFollowUpDate)
         updateData.nextFollowUpDate = leadUpdate.nextFollowUpDate;
 
-      await db.update(leads).set(updateData).where(eq(leads.id, lead.id));
-      console.log("Lead updated successfully");
+      // Update lead in database only if we have fields to update
+      if (Object.keys(updateData).length > 1) {
+        // More than just updatedAt
+        await db.update(leads).set(updateData).where(eq(leads.id, lead.id));
+        console.log("✅ Lead updated successfully");
+      }
+
+      // Handle additional preference fields in separate table
+      if (
+        leadUpdate.preferredVehicleType ||
+        leadUpdate.preferredBrand ||
+        leadUpdate.preferredFuelType ||
+        leadUpdate.maxKilometers ||
+        leadUpdate.minYear ||
+        leadUpdate.maxYear ||
+        leadUpdate.needsFinancing !== undefined ||
+        leadUpdate.minBudget ||
+        leadUpdate.maxBudget
+      ) {
+        console.log("Additional preferences detected:", {
+          preferredVehicleType: leadUpdate.preferredVehicleType,
+          preferredBrand: leadUpdate.preferredBrand,
+          preferredFuelType: leadUpdate.preferredFuelType,
+          maxKilometers: leadUpdate.maxKilometers,
+          minYear: leadUpdate.minYear,
+          maxYear: leadUpdate.maxYear,
+          needsFinancing: leadUpdate.needsFinancing,
+          minBudget: leadUpdate.minBudget,
+          maxBudget: leadUpdate.maxBudget,
+        });
+
+        // Import and use the preferences helper
+        const { updateLeadPreferences } = await import(
+          "@/lib/whatsapp/lead-preferences"
+        );
+        await updateLeadPreferences(lead.id, leadUpdate);
+      }
+
+      // Parse and update budget preferences if budget string is provided
+      if (leadUpdate.budget) {
+        const { updateLeadBudgetPreferences } = await import(
+          "@/lib/whatsapp/lead-preferences"
+        );
+        await updateLeadBudgetPreferences(lead.id, leadUpdate.budget);
+      }
     }
 
     // Send bot response via WhatsApp
-    console.log("Sending bot response via WhatsApp...");
+    console.log(`Sending WhatsApp message to ${from}: ${botResponse}`);
     const sentMessage: WhatsAppAPIResponse =
       await whatsappBotAPI.sendBotMessage(phone, botResponse);
 
-    console.log("WhatsApp response:", JSON.stringify(sentMessage, null, 2));
+    console.log("WhatsApp API response status:", sentMessage ? "200" : "error");
+    console.log("WhatsApp API response data:", sentMessage);
 
     // Save outbound message to database
     if (sentMessage && sentMessage.messages && sentMessage.messages[0]) {
-      console.log("Saving outbound message...");
       await saveWhatsAppMessage({
         leadId: lead.id,
         whatsappMessageId: sentMessage.messages[0].id,
@@ -315,7 +376,6 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
 
     // Handle escalation to manager
     if (shouldEscalate) {
-      console.log("Escalating to manager...");
       await db
         .update(leads)
         .set({
@@ -328,25 +388,12 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
       // TODO: Send notification to sales team
     }
 
-    // Update lead status if it was nuevo
-    if (lead.status === "nuevo") {
-      console.log("Updating lead status from 'nuevo' to 'contactado'...");
-      await db
-        .update(leads)
-        .set({
-          status: "contactado" as (typeof leadStatusEnum.enumValues)[number],
-          lastContactedAt: new Date(),
-        })
-        .where(eq(leads.id, lead.id));
-    }
-
     console.log(`✅ Successfully processed message from ${phone}`);
   } catch (error) {
     console.error("Error handling incoming message:", error);
 
     // Send fallback message
     try {
-      console.log("Sending fallback message...");
       await whatsappBotAPI.sendBotMessage(
         `+${message.from}`,
         "Perdón, ha habido un problema técnico. Un momento por favor..."
@@ -360,8 +407,6 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
 async function handleMessageStatus(status: WhatsAppStatus): Promise<void> {
   try {
     const { id: messageId, status: messageStatus } = status;
-
-    console.log(`Updating message ${messageId} status to: ${messageStatus}`);
 
     // Update message status in database
     await updateMessageStatus(messageId, messageStatus);

@@ -1,5 +1,3 @@
-// app/api/webhooks/whatsapp/route.ts - Updated with follow-up logic
-
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import {
@@ -212,8 +210,7 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
       return;
     }
 
-    // Mark message as read
-    await whatsappBotAPI.markAsRead(messageId);
+    // Don't mark as read immediately - we'll do it before responding
 
     // Find or create the lead
     let lead = await db
@@ -338,10 +335,12 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
         await updateLeadBudgetPreferences(lead.id, leadUpdate.budget);
       }
     }
-
     await new Promise((resolve) =>
       setTimeout(resolve, FOLLOW_UP_CONFIG.MESSAGE_DELAY)
     );
+
+    // Mark message as read just before responding (more natural behavior)
+    await whatsappBotAPI.markAsRead(messageId);
 
     // Send bot response via WhatsApp
     const sentMessage = await whatsappBotAPI.sendBotMessage(phone, botResponse);
@@ -360,11 +359,12 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
   } catch (error) {
     console.error("Error handling incoming message:", error);
 
-    // Send fallback message with delay
+    // Send fallback message with delay and mark as read before responding
     try {
       await new Promise((resolve) =>
         setTimeout(resolve, FOLLOW_UP_CONFIG.MESSAGE_DELAY)
       );
+      await whatsappBotAPI.markAsRead(message.id);
       await whatsappBotAPI.sendBotMessage(
         `+${message.from}`,
         "Perdón, ha habido un problema técnico. Un momento por favor..."

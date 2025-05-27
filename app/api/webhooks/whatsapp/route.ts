@@ -19,7 +19,7 @@ import {
 } from "@/lib/whatsapp/utils/whatsapp-bot";
 import { setNextFollowUpDate } from "@/lib/whatsapp/followup/followup-service";
 import { FOLLOW_UP_CONFIG } from "@/lib/whatsapp/followup/followup-config";
-import { addMessageToQueue } from "@/lib/whatsapp/message-debouncing";
+// import { addMessageToQueue } from "@/lib/whatsapp/message-debouncing";
 import type {
   WhatsAppContact,
   WhatsAppMessage,
@@ -255,6 +255,7 @@ async function handleIncomingMessageWithDebouncing(
     });
 
     // Add message to debouncing queue
+    /*
     await addMessageToQueue(
       lead.id,
       messageId,
@@ -263,6 +264,8 @@ async function handleIncomingMessageWithDebouncing(
       new Date(parseInt(timestamp) * 1000),
       processAccumulatedMessages
     );
+    */
+    await processAccumulatedMessages(lead.id, messageText, [messageId]);
   } catch (error) {
     console.error("Error handling incoming message:", error);
   }

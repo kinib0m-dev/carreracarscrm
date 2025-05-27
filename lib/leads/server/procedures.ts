@@ -49,6 +49,7 @@ export const leadRouter = createTRPCRouter({
             });
           }
         }
+
         // Check if a lead with the same phone already exists (if phone provided)
         if (input.phone) {
           const existingByPhone = await db
@@ -65,23 +66,39 @@ export const leadRouter = createTRPCRouter({
           }
         }
 
-        const leadData = {
-          ...input,
-        };
+        // If phone number is provided, use the WhatsApp-enabled creation
+        if (input.phone) {
+          const { createLeadWithWelcomeMessage } = await import(
+            "@/lib/whatsapp/manual-lead-creation"
+          );
 
-        // Insert the new lead
-        const [newLead] = await db.insert(leads).values(leadData).returning();
+          const newLead = await createLeadWithWelcomeMessage({
+            name: input.name,
+            phone: input.phone,
+            email: input.email || undefined,
+            campaignId: input.campaignId || undefined,
+          });
 
-        return {
-          success: true,
-          lead: newLead,
-        };
+          return {
+            success: true,
+            lead: newLead,
+          };
+        } else {
+          // Regular lead creation without WhatsApp (no phone number)
+          const [newLead] = await db.insert(leads).values(input).returning();
+
+          return {
+            success: true,
+            lead: newLead,
+          };
+        }
       } catch (error) {
         console.error("Error creating lead:", error);
-        // Check for unique constraint violation
+
         if (error instanceof TRPCError) {
           throw error;
         }
+
         // Handle database-level unique violations
         if (
           error instanceof Error &&
@@ -99,6 +116,7 @@ export const leadRouter = createTRPCRouter({
             });
           }
         }
+
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to create lead",

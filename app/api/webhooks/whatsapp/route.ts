@@ -378,12 +378,8 @@ async function processAccumulatedMessages(
       setTimeout(resolve, FOLLOW_UP_CONFIG.MESSAGE_DELAY)
     );
 
-    // Mark all accumulated messages as read just before responding
-    for (const messageId of messageIds) {
-      await whatsappBotAPI.markAsRead(messageId);
-    }
-
-    // Send single bot response for all accumulated messages
+    // Send bot response FIRST
+    console.log(`📤 Sending bot response to ${lead.phone}: "${botResponse}"`);
     const sentMessage = await whatsappBotAPI.sendBotMessage(
       lead.phone,
       botResponse
@@ -403,7 +399,22 @@ async function processAccumulatedMessages(
           combinedMessage: true,
         },
       });
+
+      console.log(`✅ Bot response sent successfully`);
     }
+
+    // Mark messages as read AFTER sending the response (with a small delay to avoid race conditions)
+    setTimeout(async () => {
+      for (const messageId of messageIds) {
+        try {
+          await whatsappBotAPI.markAsRead(messageId);
+          console.log(`📖 Marked message ${messageId} as read`);
+        } catch (error) {
+          console.error(`Error marking message ${messageId} as read:`, error);
+          // Don't fail the whole process if marking as read fails
+        }
+      }
+    }, 1000); // 1 second delay
   } catch (error) {
     console.error("Error processing accumulated messages:", error);
 

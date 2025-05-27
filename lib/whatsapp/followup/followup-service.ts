@@ -1,9 +1,9 @@
 import { db } from "@/db";
 import { leads, leadStatusEnum } from "@/db/schema";
-import { eq, and, lt, sql } from "drizzle-orm";
-import { FOLLOW_UP_CONFIG, getFollowUpMessage } from "./followup-config";
+import { eq, and, sql } from "drizzle-orm";
 import { whatsappBotAPI } from "../utils/whatsapp-bot";
 import { saveWhatsAppMessage } from "../message-storage";
+import { FOLLOW_UP_CONFIG, getFollowUpMessage } from "./followup-config";
 
 interface LeadForFollowUp {
   id: string;
@@ -20,9 +20,11 @@ interface LeadForFollowUp {
  */
 export async function processFollowUps(): Promise<void> {
   try {
+    console.log("🔄 Starting follow-up processing...");
+
     const now = new Date();
 
-    // Find leads that need follow-up
+    // Find leads that need follow-up with proper SQL
     const leadsNeedingFollowUp = (await db
       .select({
         id: leads.id,
@@ -41,23 +43,30 @@ export async function processFollowUps(): Promise<void> {
           // Lead has a phone number
           sql`${leads.phone} IS NOT NULL AND ${leads.phone} != ''`,
           // Lead is in an active status
-          sql`${leads.status} = ANY(${FOLLOW_UP_CONFIG.ACTIVE_STATUSES})`,
+          sql`${leads.status} IN ('nuevo', 'contactado', 'activo', 'calificado', 'propuesta', 'evaluando')`,
           // Next follow-up date has passed
-          lt(leads.nextFollowUpDate, now),
+          sql`${leads.nextFollowUpDate} IS NOT NULL AND ${leads.nextFollowUpDate} < ${now}`,
           // Haven't exceeded max follow-ups
           sql`COALESCE(${leads.followUpCount}, 0) < ${FOLLOW_UP_CONFIG.MAX_FOLLOW_UPS}`
         )
       )) as LeadForFollowUp[];
 
+    console.log(
+      `📋 Found ${leadsNeedingFollowUp.length} leads needing follow-up`
+    );
+
     for (const lead of leadsNeedingFollowUp) {
       try {
         await sendFollowUpMessage(lead);
+
         // Add delay between follow-ups to avoid rate limiting
         await new Promise((resolve) => setTimeout(resolve, 2000));
       } catch (error) {
         console.error(`❌ Error sending follow-up to lead ${lead.id}:`, error);
       }
     }
+
+    console.log("✅ Follow-up processing completed");
   } catch (error) {
     console.error("❌ Error in processFollowUps:", error);
   }
@@ -68,8 +77,12 @@ export async function processFollowUps(): Promise<void> {
  */
 async function sendFollowUpMessage(lead: LeadForFollowUp): Promise<void> {
   try {
+    console.log(`📤 Sending follow-up to ${lead.name} (${lead.phone})`);
+
     // Check if we've already sent too many follow-ups
     if (lead.followUpCount >= FOLLOW_UP_CONFIG.MAX_FOLLOW_UPS) {
+      console.log(`⏭️ Skipping lead ${lead.id} - max follow-ups reached`);
+
       // Mark as inactive
       await updateLeadFollowUpStatus(
         lead.id,
@@ -79,6 +92,7 @@ async function sendFollowUpMessage(lead: LeadForFollowUp): Promise<void> {
       );
       return;
     }
+
     // Get the appropriate follow-up message
     const followUpMessage = getFollowUpMessage(lead.status, lead.followUpCount);
 
@@ -120,6 +134,10 @@ async function sendFollowUpMessage(lead: LeadForFollowUp): Promise<void> {
       nextFollowUpDate,
       lead.followUpCount + 1
     );
+
+    console.log(
+      `✅ Follow-up sent to ${lead.name} (count: ${lead.followUpCount + 1})`
+    );
   } catch (error) {
     console.error(
       `❌ Error sending follow-up message to lead ${lead.id}:`,
@@ -149,7 +167,10 @@ async function updateLeadFollowUpStatus(
       })
       .where(eq(leads.id, leadId));
   } catch (error) {
-    console.error(`Error updating lead follow-up status for ${leadId}:`, error);
+    console.error(
+      `❌ Error updating lead follow-up status for ${leadId}:`,
+      error
+    );
   }
 }
 
@@ -172,6 +193,10 @@ export async function setNextFollowUpDate(leadId: string): Promise<void> {
         updatedAt: new Date(),
       })
       .where(eq(leads.id, leadId));
+
+    console.log(
+      `📅 Next follow-up set for lead ${leadId}: ${nextFollowUpDate.toISOString()}`
+    );
   } catch (error) {
     console.error(
       `❌ Error setting next follow-up date for lead ${leadId}:`,
@@ -198,9 +223,9 @@ export async function checkAndMarkInactiveLeads(): Promise<void> {
       .from(leads)
       .where(
         and(
-          sql`${leads.status} = ANY(${FOLLOW_UP_CONFIG.ACTIVE_STATUSES})`,
+          sql`${leads.status} IN ('nuevo', 'contactado', 'activo', 'calificado', 'propuesta', 'evaluando')`,
           sql`COALESCE(${leads.followUpCount}, 0) >= ${FOLLOW_UP_CONFIG.MAX_FOLLOW_UPS}`,
-          lt(leads.lastMessageAt, cutoffDate)
+          sql`${leads.lastMessageAt} IS NOT NULL AND ${leads.lastMessageAt} < ${cutoffDate}`
         )
       );
 
@@ -213,6 +238,12 @@ export async function checkAndMarkInactiveLeads(): Promise<void> {
           updatedAt: new Date(),
         })
         .where(eq(leads.id, lead.id));
+
+      console.log(`😴 Marked lead ${lead.name} (${lead.id}) as inactive`);
+    }
+
+    if (inactiveLeads.length > 0) {
+      console.log(`😴 Marked ${inactiveLeads.length} leads as inactive`);
     }
   } catch (error) {
     console.error("❌ Error checking for inactive leads:", error);

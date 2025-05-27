@@ -17,6 +17,9 @@ import {
   whatsappBotAPI,
   WhatsAppIncomingMessage,
 } from "@/lib/whatsapp/utils/whatsapp-bot";
+import { setNextFollowUpDate } from "@/lib/whatsapp/followup/followup-service";
+import { FOLLOW_UP_CONFIG } from "@/lib/whatsapp/followup/followup-config";
+import { addMessageToQueue } from "@/lib/whatsapp/message-debouncing";
 import type {
   WhatsAppContact,
   WhatsAppMessage,
@@ -24,8 +27,6 @@ import type {
   WhatsAppAPIResponse,
 } from "@/types/whatsapp";
 import type { Lead } from "@/types/database";
-import { setNextFollowUpDate } from "@/lib/whatsapp/followup/followup-service";
-import { FOLLOW_UP_CONFIG } from "@/lib/whatsapp/followup/followup-config";
 
 const WEBHOOK_VERIFY_TOKEN = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
 
@@ -96,10 +97,10 @@ async function processWhatsAppWebhook(
           }
         }
 
-        // Process incoming messages
+        // Process incoming messages with debouncing
         if (value.messages) {
           for (const message of value.messages) {
-            await handleIncomingMessage(message);
+            await handleIncomingMessageWithDebouncing(message);
           }
         }
 
@@ -136,7 +137,7 @@ async function handleNewContact(contact: WhatsAppContact): Promise<void> {
           phone,
           status: "nuevo" as (typeof leadStatusEnum.enumValues)[number],
           lastContactedAt: new Date(),
-          followUpCount: 0, // Initialize follow-up count
+          followUpCount: 0,
         })
         .returning();
 
@@ -162,6 +163,10 @@ async function sendWelcomeMessage(
     // Extract first name
     const firstName = name.trim().split(" ")[0];
 
+    // Add natural delay before sending welcome message
+    console.log(
+      `⏱️ Adding ${FOLLOW_UP_CONFIG.MESSAGE_DELAY / 1000}s delay before sending welcome message...`
+    );
     await new Promise((resolve) =>
       setTimeout(resolve, FOLLOW_UP_CONFIG.MESSAGE_DELAY)
     );
@@ -200,7 +205,10 @@ async function sendWelcomeMessage(
   }
 }
 
-async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
+// New debounced message handler
+async function handleIncomingMessageWithDebouncing(
+  message: WhatsAppMessage
+): Promise<void> {
   try {
     const { from, id: messageId, text, timestamp } = message;
     const phone = `+${from}`;
@@ -209,8 +217,6 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
     if (!messageText) {
       return;
     }
-
-    // Don't mark as read immediately - we'll do it before responding
 
     // Find or create the lead
     let lead = await db
@@ -237,7 +243,7 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
       lead = newLead as Lead;
     }
 
-    // Save incoming message to database
+    // Save incoming message to database immediately
     await saveWhatsAppMessage({
       leadId: lead.id,
       whatsappMessageId: messageId,
@@ -248,12 +254,52 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
       status: "received",
     });
 
-    // Reset follow-up count and set next follow-up since they responded
-    await setNextFollowUpDate(lead.id);
+    // Add message to debouncing queue
+    await addMessageToQueue(
+      lead.id,
+      messageId,
+      messageText,
+      phone,
+      new Date(parseInt(timestamp) * 1000),
+      processAccumulatedMessages
+    );
+  } catch (error) {
+    console.error("Error handling incoming message:", error);
+  }
+}
 
-    // Generate bot response
+// Process accumulated messages as one conversation
+async function processAccumulatedMessages(
+  leadId: string,
+  combinedMessage: string,
+  messageIds: string[]
+): Promise<void> {
+  try {
+    // Get lead info
+    const lead = await db
+      .select()
+      .from(leads)
+      .where(eq(leads.id, leadId))
+      .limit(1)
+      .then((results) => results[0] as Lead | undefined);
+
+    if (!lead) {
+      console.error(
+        `Lead ${leadId} not found when processing accumulated messages`
+      );
+      return;
+    }
+
+    console.log(
+      `🔄 Processing combined message for ${lead.name}: "${combinedMessage}"`
+    );
+
+    // Reset follow-up count and set next follow-up since they responded
+    await setNextFollowUpDate(leadId);
+
+    // Generate bot response for the combined message
     const { response: botResponse, leadUpdate } =
-      await generateWhatsAppBotResponse(messageText, lead.id);
+      await generateWhatsAppBotResponse(combinedMessage, leadId);
 
     // Apply lead updates to database
     if (leadUpdate && Object.keys(leadUpdate).length > 0) {
@@ -271,13 +317,12 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
         updatedAt: new Date(),
         lastContactedAt: new Date(),
         lastMessageAt: new Date(),
-        followUpCount: 0, // Reset follow-up count when they respond
+        followUpCount: 0,
       };
 
-      // Validate status against the enum before updating
+      // Validate and apply status update
       if (leadUpdate.status) {
         const validStatuses = leadStatusEnum.enumValues;
-
         if (
           validStatuses.includes(
             leadUpdate.status as (typeof leadStatusEnum.enumValues)[number]
@@ -285,8 +330,6 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
         ) {
           updateData.status =
             leadUpdate.status as (typeof leadStatusEnum.enumValues)[number];
-        } else {
-          console.error(`❌ Invalid status: ${leadUpdate.status}`);
         }
       }
 
@@ -299,17 +342,11 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
         updateData.type =
           leadUpdate.type as (typeof leadTypeEnum.enumValues)[number];
       }
-      if (leadUpdate.nextFollowUpDate)
-        updateData.nextFollowUpDate = leadUpdate.nextFollowUpDate;
 
       // Update lead in database
-      await db
-        .update(leads)
-        .set(updateData)
-        .where(eq(leads.id, lead.id))
-        .returning();
+      await db.update(leads).set(updateData).where(eq(leads.id, leadId));
 
-      // Handle additional preference fields in separate table
+      // Handle additional preference fields
       if (
         leadUpdate.preferredVehicleType ||
         leadUpdate.preferredBrand ||
@@ -317,58 +354,77 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
         leadUpdate.maxKilometers ||
         leadUpdate.minYear ||
         leadUpdate.maxYear ||
-        leadUpdate.needsFinancing !== undefined ||
-        leadUpdate.minBudget ||
-        leadUpdate.maxBudget
+        leadUpdate.needsFinancing !== undefined
       ) {
         const { updateLeadPreferences } = await import(
           "@/lib/whatsapp/lead-preferences"
         );
-        await updateLeadPreferences(lead.id, leadUpdate);
+        await updateLeadPreferences(leadId, leadUpdate);
       }
 
-      // Parse and update budget preferences if budget string is provided
       if (leadUpdate.budget) {
         const { updateLeadBudgetPreferences } = await import(
           "@/lib/whatsapp/lead-preferences"
         );
-        await updateLeadBudgetPreferences(lead.id, leadUpdate.budget);
+        await updateLeadBudgetPreferences(leadId, leadUpdate.budget);
       }
     }
+
+    // Add natural delay before responding
+    console.log(
+      `⏱️ Adding ${FOLLOW_UP_CONFIG.MESSAGE_DELAY / 1000}s delay before bot response...`
+    );
     await new Promise((resolve) =>
       setTimeout(resolve, FOLLOW_UP_CONFIG.MESSAGE_DELAY)
     );
 
-    // Mark message as read just before responding (more natural behavior)
-    await whatsappBotAPI.markAsRead(messageId);
+    // Mark all accumulated messages as read just before responding
+    for (const messageId of messageIds) {
+      await whatsappBotAPI.markAsRead(messageId);
+    }
 
-    // Send bot response via WhatsApp
-    const sentMessage = await whatsappBotAPI.sendBotMessage(phone, botResponse);
+    // Send single bot response for all accumulated messages
+    const sentMessage = await whatsappBotAPI.sendBotMessage(
+      lead.phone,
+      botResponse
+    );
 
     // Save outbound message to database
     if (sentMessage?.messages?.[0]) {
       await saveWhatsAppMessage({
-        leadId: lead.id,
+        leadId,
         whatsappMessageId: sentMessage.messages[0].id,
         direction: "outbound",
         content: botResponse,
-        phoneNumber: phone,
+        phoneNumber: lead.phone,
         status: "sent",
+        metadata: {
+          respondingToMessages: messageIds.length,
+          combinedMessage: true,
+        },
       });
     }
   } catch (error) {
-    console.error("Error handling incoming message:", error);
+    console.error("Error processing accumulated messages:", error);
 
-    // Send fallback message with delay and mark as read before responding
+    // Send fallback message
     try {
-      await new Promise((resolve) =>
-        setTimeout(resolve, FOLLOW_UP_CONFIG.MESSAGE_DELAY)
-      );
-      await whatsappBotAPI.markAsRead(message.id);
-      await whatsappBotAPI.sendBotMessage(
-        `+${message.from}`,
-        "Perdón, ha habido un problema técnico. Un momento por favor..."
-      );
+      const lead = await db
+        .select()
+        .from(leads)
+        .where(eq(leads.id, leadId))
+        .limit(1)
+        .then((results) => results[0] as Lead | undefined);
+
+      if (lead) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, FOLLOW_UP_CONFIG.MESSAGE_DELAY)
+        );
+        await whatsappBotAPI.sendBotMessage(
+          lead.phone,
+          "Perdón, ha habido un problema técnico. Un momento por favor..."
+        );
+      }
     } catch (fallbackError) {
       console.error("Error sending fallback message:", fallbackError);
     }
@@ -378,8 +434,6 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
 async function handleMessageStatus(status: WhatsAppStatus): Promise<void> {
   try {
     const { id: messageId, status: messageStatus } = status;
-
-    // Update message status in database
     await updateMessageStatus(messageId, messageStatus);
   } catch (error) {
     console.error("Error handling message status:", error);

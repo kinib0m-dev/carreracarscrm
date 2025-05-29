@@ -2,7 +2,7 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const MANAGER_EMAIL = "kinib0m.dev@gmail.com";
+const MANAGER_EMAIL = "carrerandcars@gmail.com";
 
 /**
  * Send email notification when a lead is escalated to manager status
@@ -210,7 +210,7 @@ export async function sendManagerEscalationEmail(
     `;
 
     await resend.emails.send({
-      from: "onboarding@resend.dev", // You can change this to your domain
+      from: "no-reply@carreracarss.es", // You can change this to your domain
       to: MANAGER_EMAIL,
       subject: subject,
       html: htmlContent,
@@ -324,7 +324,7 @@ export async function sendPlaygroundCompletionEmail(
     `;
 
     await resend.emails.send({
-      from: "onboarding@resend.dev",
+      from: "no-reply@carreracarss.es",
       to: MANAGER_EMAIL,
       subject: subject,
       html: htmlContent,

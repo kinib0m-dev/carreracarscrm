@@ -35,7 +35,7 @@ export async function sendVerificationEmail(email: string, token: string) {
   const confirmLink = `${path}/new-verification?token=${token}`;
 
   await resend.emails.send({
-    from: "onboarding@resend.dev",
+    from: "no-reply@carreracarss.es",
     to: email,
     subject: "Confirm Your Email",
     html: emailTemplate(
@@ -51,7 +51,7 @@ export async function sendResetPasswordEmail(email: string, token: string) {
   const resetLink = `${path}/new-password?token=${token}`;
 
   await resend.emails.send({
-    from: "onboarding@resend.dev",
+    from: "no-reply@carreracarss.es",
     to: email,
     subject: "Reset Your Password",
     html: emailTemplate(
@@ -65,7 +65,7 @@ export async function sendResetPasswordEmail(email: string, token: string) {
 
 export async function sendTwoFactorTokenEmail(email: string, token: string) {
   await resend.emails.send({
-    from: "onboarding@resend.dev",
+    from: "no-reply@carreracarss.es",
     to: email,
     subject: "Your Two-Factor Authentication Code",
     html: emailTemplate(

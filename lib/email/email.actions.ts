@@ -130,7 +130,7 @@ export async function sendEmailToLeads({
 
       // Send the email
       const result = await resend.emails.send({
-        from: "onboarding@resend.dev",
+        from: "info@carreracarss.es",
         to: lead.email,
         subject: personalizedSubject,
         html: htmlContent,

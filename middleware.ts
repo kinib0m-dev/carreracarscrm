@@ -25,8 +25,11 @@ export default auth((req) => {
   // Add check for cron routes to bypass authentication
   const isCron = nextUrl.pathname.startsWith("/api/cron");
 
+  // Add check for test routes to bypass authentication
+  const isTest = nextUrl.pathname.startsWith("/api/test");
+
   // Skip middleware for API auth routes, tRPC routes, and webhooka
-  if (isApiAuthRoute || isTrpcRoute || isWebhook || isCron) {
+  if (isApiAuthRoute || isTrpcRoute || isWebhook || isCron || isTest) {
     return;
   }
 

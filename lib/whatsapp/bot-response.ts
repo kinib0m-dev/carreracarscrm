@@ -454,11 +454,25 @@ export async function generateWhatsAppBotResponse(
     - Negociación de precio (descuento, último precio, mejor precio)
     - Urgencia de compra (comprar hoy, decidir ahora, reservar)
 
+    ESCALACIÓN NATURAL: Cuando escalas a manager:
+    - USA FRASES NATURALES como: "Te paso con mi jefe para que te ayude mejor con eso"
+    - O: "Ahora te contacta mi compañero que sabe más de financiación"
+    - O: "Te va a llamar mi jefe que maneja mejor los temas de tasación"
+    - NUNCA menciones "cambio el estado" o términos técnicos del sistema
+
     CONTEXTO DE VEHÍCULOS:
     - Si hay vehículos marcados como [PREVIAMENTE MENCIONADO], el cliente YA los conoce
     - Si preguntan sobre "ese coche", "el anterior", "las fotos", etc., se refieren a los coches previamente mencionados
     - SIEMPRE usa el VEHÍCULO_ID correcto al hacer referencias
     - Mantén la coherencia en la información de cada vehículo específico
+
+    MANEJO DE FOTOS Y URLs:
+    - Si piden fotos de un coche específico mencionado antes, usa SOLO la URL exacta de ese vehículo
+    - Cuando menciones un vehículo con fotos disponibles, incluye el enlace DIRECTAMENTE en el texto
+    - Formato: "Te mando las fotos: [URL]" (sin asteriscos, corchetes ni viñetas)
+    - MÁXIMO UNA URL por vehículo
+    - Si no hay URL: "Ahora mismo no tengo fotos en el móvil, pero mañana te hago unas"
+    - NUNCA inventes URLs o datos de vehículos
 
     REGLAS IMPORTANTES:
     1. JAMÁS digas que eres un bot, IA o asistente virtual. Eres Pedro, una persona real.
@@ -466,13 +480,9 @@ export async function generateWhatsAppBotResponse(
     3. Respuestas breves y naturales (ideal: 1 a 3 frases por mensaje).
     4. Usa interjecciones como: "hola!", "pues mira", "la verdad", "vale", etc.
     5. NO uses listas ni numeración en los mensajes.
-    6. Usa español de España: "vale", "coche", "genial", nunca "carro", "celular", etc.
-    7. Si mencionas precios: formato español (18.000€, 24.990€).
-
-    MANEJO DE FOTOS Y URLs:
-    - Si piden fotos de un coche específico mencionado antes, usa la URL exacta de ese vehículo
-    - Si no hay URL: "Ahora mismo no tengo fotos en el móvil, pero mañana te hago unas"
-    - NUNCA inventes URLs o datos de vehículos
+    6. NO uses asteriscos (*), viñetas (•), corchetes [] ni llaves {} en el texto visible
+    7. Usa español de España: "vale", "coche", "genial", nunca "carro", "celular", etc.
+    8. Si mencionas precios: formato español (18.000€, 24.990€).
 
     FLUJO DE CONVERSACIÓN:
     nuevo → contactado → activo → calificado → propuesta → evaluando → manager
@@ -483,16 +493,9 @@ export async function generateWhatsAppBotResponse(
     - perdido: "Vale, gracias por avisarme. Si algún día buscas otro, aquí estoy."
 
     INSTRUCCIONES DE ACTUALIZACIÓN:
-    Al final de tu respuesta, incluye un JSON con las actualizaciones del lead:
+    Al final de tu respuesta, incluye SOLO UNA LÍNEA con el JSON de actualizaciones:
 
-    LEAD_UPDATE_JSON:
-    {
-      "status": "estado_apropiado",
-      "budget": "presupuesto_mencionado",
-      "expectedPurchaseTimeframe": "plazo_mencionado",
-      "preferredVehicleType": "tipo_vehiculo",
-      "selectedCarIds": ["id1", "id2"]
-    }
+    LEAD_UPDATE_JSON: {"status": "estado_apropiado", "budget": "presupuesto_mencionado", "selectedCarIds": ["id1", "id2"]}
 
     Solo incluye campos que han cambiado. Si hay escalación, asegúrate de cambiar status a "manager".
 
@@ -516,7 +519,7 @@ export async function generateWhatsAppBotResponse(
           role: "model",
           parts: [
             {
-              text: "Entendido. Seguiré todas las indicaciones como Pedro, mantendré el contexto de los vehículos mencionados, y escalaré inmediatamente a manager cuando detecte palabras clave de financiación, tasación, documentación o negociación.",
+              text: "Entendido. Seguiré todas las indicaciones como Pedro, mantendré el contexto de los vehículos mencionados, usaré URLs directamente sin formato de lista, y escalaré naturalmente a manager cuando detecte palabras clave.",
             },
           ],
         },
@@ -534,30 +537,47 @@ export async function generateWhatsAppBotResponse(
     const result = await chat.sendMessage(query);
     const responseText = result.response.text();
 
-    // Parse the response to extract lead updates
+    // Parse the response to extract lead updates with improved cleaning
     let botResponse = responseText;
     let leadUpdate: LeadUpdate | undefined;
     let selectedCarIds: string[] = [];
 
-    // Look for the LEAD_UPDATE_JSON in the response
-    const jsonMatch =
-      responseText.match(
-        /LEAD_UPDATE_JSON:\s*```?\s*json\s*(\{[\s\S]*?\})\s*```?/i
-      ) || responseText.match(/LEAD_UPDATE_JSON:\s*(\{[\s\S]*?\})/);
+    // Multiple patterns to catch the JSON in different formats
+    const jsonPatterns = [
+      /LEAD_UPDATE_JSON:\s*(\{[^}]*\})/i,
+      /LEAD_UPDATE_JSON:\s*```\s*json\s*(\{[\s\S]*?\})\s*```/i,
+      /LEAD_UPDATE_JSON:\s*```(\{[\s\S]*?\})```/i,
+      /```\s*json\s*(\{[\s\S]*?\})\s*```/gi,
+      /(\{[^}]*"status"[^}]*\})/i,
+    ];
+
+    let jsonMatch = null;
+    for (const pattern of jsonPatterns) {
+      jsonMatch = responseText.match(pattern);
+      if (jsonMatch) break;
+    }
 
     if (jsonMatch) {
       try {
         const updateData = JSON.parse(jsonMatch[1]) as LeadUpdateData;
 
-        // Remove the JSON from the bot response completely
+        // Clean the response by removing ALL variations of the JSON
         botResponse = responseText
+          // Remove LEAD_UPDATE_JSON with various formats
           .replace(
-            /LEAD_UPDATE_JSON:[\s\S]*?```?\s*json\s*\{[\s\S]*?\}\s*```?/gi,
+            /LEAD_UPDATE_JSON:\s*```?\s*json\s*\{[\s\S]*?\}\s*```?/gi,
             ""
           )
-          .replace(/LEAD_UPDATE_JSON:\s*\{[\s\S]*?\}/gi, "")
+          .replace(/LEAD_UPDATE_JSON:\s*\{[^}]*\}/gi, "")
+          // Remove any remaining JSON blocks
           .replace(/```\s*json[\s\S]*?```/gi, "")
           .replace(/```[\s\S]*?```/gi, "")
+          // Remove standalone JSON objects that look like lead updates
+          .replace(/\{[^}]*"status"[^}]*\}/gi, "")
+          // Remove any remaining json text blocks
+          .replace(/json\s*\{[^}]*\}/gi, "")
+          // Clean up multiple newlines and trim
+          .replace(/\n\s*\n\s*\n/g, "\n\n")
           .trim();
 
         // Extract the lead update data
@@ -607,9 +627,12 @@ export async function generateWhatsAppBotResponse(
         leadUpdate.lastMessageAt = new Date();
       } catch (error) {
         console.error("Error parsing lead update JSON:", error);
-        // Clean the response even if JSON parsing fails
+        // Clean the response even if JSON parsing fails - enhanced cleaning
         botResponse = responseText
           .replace(/LEAD_UPDATE_JSON:[\s\S]*$/gi, "")
+          .replace(/json\s*\{[\s\S]*$/gi, "")
+          .replace(/```[\s\S]*?```/gi, "")
+          .replace(/\{[^}]*"status"[^}]*\}/gi, "")
           .trim();
 
         // Still apply escalation if needed

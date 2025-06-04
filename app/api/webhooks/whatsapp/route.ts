@@ -22,12 +22,7 @@ import {
 } from "@/lib/whatsapp/utils/whatsapp-bot";
 import { setNextFollowUpDate } from "@/lib/whatsapp/followup/followup-service";
 import { FOLLOW_UP_CONFIG } from "@/lib/whatsapp/followup/followup-config";
-import type {
-  WhatsAppContact,
-  WhatsAppMessage,
-  WhatsAppStatus,
-  WhatsAppAPIResponse,
-} from "@/types/whatsapp";
+import type { WhatsAppMessage, WhatsAppStatus } from "@/types/whatsapp";
 import type { Lead } from "@/types/database";
 import type { RelevantCar } from "@/types/bot";
 
@@ -117,12 +112,8 @@ async function processWhatsAppWebhook(
       if (change.field === "messages") {
         const value = change.value;
 
-        // Process new contacts
-        if (value.contacts) {
-          for (const contact of value.contacts) {
-            await handleNewContact(contact);
-          }
-        }
+        // Process new contacts - REMOVED: No longer creating new leads automatically
+        // We now only handle messages from existing leads
 
         // Process incoming messages
         if (value.messages) {
@@ -142,100 +133,7 @@ async function processWhatsAppWebhook(
   }
 }
 
-async function handleNewContact(contact: WhatsAppContact): Promise<void> {
-  try {
-    const { wa_id, profile } = contact;
-    const phone = `+${wa_id}`;
-    const name = profile.name || "WhatsApp User";
-
-    // Check if lead already exists
-    const existingLead = await db
-      .select()
-      .from(leads)
-      .where(eq(leads.phone, phone))
-      .limit(1);
-
-    if (existingLead.length === 0) {
-      // Create new lead
-      const [newLead] = await db
-        .insert(leads)
-        .values({
-          name,
-          phone,
-          status: "nuevo" as (typeof leadStatusEnum.enumValues)[number],
-          lastContactedAt: new Date(),
-          followUpCount: 0,
-        })
-        .returning();
-
-      // Send welcome message to new lead with delay
-      await sendWelcomeMessage(phone, name, newLead.id);
-
-      // Set initial follow-up date
-      await setNextFollowUpDate(newLead.id);
-    } else {
-      console.log(`Lead already exists for phone: ${phone}`);
-    }
-  } catch (error) {
-    console.error("Error handling new contact:", error);
-  }
-}
-
-async function sendWelcomeMessage(
-  phone: string,
-  name: string,
-  leadId: string
-): Promise<void> {
-  try {
-    // Extract first name
-    const firstName = name.trim().split(" ")[0];
-
-    // Add natural delay before sending welcome message
-    console.log(
-      `⏱️ Adding ${FOLLOW_UP_CONFIG.MESSAGE_DELAY / 1000}s delay before sending welcome message...`
-    );
-    await new Promise((resolve) =>
-      setTimeout(resolve, FOLLOW_UP_CONFIG.MESSAGE_DELAY)
-    );
-
-    // Send welcome message
-    const welcomeMessage = `Hola ${firstName}! Soy Pedro de Carrera Cars. ¿Estás buscando algún vehículo en especial o solo estás viendo opciones?`;
-
-    const sentMessage: WhatsAppAPIResponse =
-      await whatsappBotAPI.sendBotMessage(phone, welcomeMessage);
-
-    if (sentMessage?.messages?.[0]) {
-      // Prepare welcome message metadata
-      const welcomeMetadata: MessageMetadata = {
-        isWelcomeMessage: true,
-      };
-
-      // Save the welcome message to database
-      await saveWhatsAppMessage({
-        leadId,
-        whatsappMessageId: sentMessage.messages[0].id,
-        direction: "outbound",
-        content: welcomeMessage,
-        phoneNumber: phone,
-        status: "sent",
-        metadata: welcomeMetadata,
-      });
-
-      // Update lead status to "contactado"
-      await db
-        .update(leads)
-        .set({
-          status: "contactado" as (typeof leadStatusEnum.enumValues)[number],
-          lastContactedAt: new Date(),
-        })
-        .where(eq(leads.id, leadId));
-    }
-  } catch (error) {
-    console.error("Error sending welcome message:", error);
-  }
-}
-
-// Enhanced message handler with car context support
+// Enhanced message handler with car context support - only for existing leads
 async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
   try {
     const { from, id: messageId, text, timestamp } = message;
@@ -246,30 +144,25 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
       return;
     }
 
-    // Find or create the lead
-    let lead = await db
+    // Find existing lead - DO NOT CREATE NEW LEAD
+    const lead = await db
       .select()
       .from(leads)
       .where(eq(leads.phone, phone))
       .limit(1)
       .then((results) => results[0] as Lead | undefined);
 
+    // If no lead exists, DO NOT REPLY
     if (!lead) {
-      // Create new lead if doesn't exist
-      const [newLead] = await db
-        .insert(leads)
-        .values({
-          name: "WhatsApp User",
-          phone,
-          status: "nuevo" as (typeof leadStatusEnum.enumValues)[number],
-          lastContactedAt: new Date(),
-          lastMessageAt: new Date(),
-          followUpCount: 0,
-        })
-        .returning();
-
-      lead = newLead as Lead;
+      console.log(
+        `🚫 No lead found for phone ${phone} - ignoring message: "${messageText}"`
+      );
+      return;
     }
+
+    console.log(
+      `📥 Processing message from existing lead ${lead.name}: "${messageText}"`
+    );
 
     // Save incoming message to database immediately
     await saveWhatsAppMessage({

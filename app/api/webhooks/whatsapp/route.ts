@@ -131,7 +131,7 @@ async function processWhatsAppWebhook(
   }
 }
 
-// Enhanced message handler with car context support - only for existing leads
+// Enhanced message handler with status check - only for existing active leads
 async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
   try {
     const { from, id: messageId, text, timestamp } = message;
@@ -158,6 +158,49 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
       return;
     }
 
+    // Check if lead has been escalated to manager or other final statuses
+    const managerStatuses = [
+      "manager",
+      "iniciado",
+      "documentacion",
+      "comprador",
+      "descartado",
+      "sin_interes",
+      "inactivo",
+      "perdido",
+      "rechazado",
+      "sin_opciones",
+    ];
+
+    if (managerStatuses.includes(lead.status)) {
+      // Still save the incoming message for record keeping
+      await saveWhatsAppMessage({
+        leadId: lead.id,
+        whatsappMessageId: messageId,
+        direction: "inbound",
+        content: messageText,
+        phoneNumber: phone,
+        whatsappTimestamp: new Date(parseInt(timestamp) * 1000),
+        status: "received",
+        metadata: {
+          botStatus: "ignored_due_to_escalation",
+          leadStatus: lead.status,
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      // Mark message as read but don't respond
+      setTimeout(async () => {
+        try {
+          await whatsappBotAPI.markAsRead(messageId);
+        } catch (error) {
+          console.error(`Error marking message ${messageId} as read:`, error);
+        }
+      }, 1000);
+
+      return; // Exit without processing or responding
+    }
+
     // Save incoming message to database immediately
     await saveWhatsAppMessage({
       leadId: lead.id,
@@ -169,7 +212,7 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
       status: "received",
     });
 
-    // Process the message with enhanced bot response
+    // Process the message with enhanced bot response (only for active leads)
     await processMessage(lead, messageText, messageId);
   } catch (error) {
     console.error("Error handling incoming message:", error);

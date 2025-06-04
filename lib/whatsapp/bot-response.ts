@@ -446,7 +446,7 @@ export async function generateWhatsAppBotResponse(
     4. MANTENER CONTEXTO sobre los coches mencionados anteriormente
     5. ESCALAR INMEDIATAMENTE A MANAGER si detectas palabras clave específicas
 
-    🚨 ESCALACIÓN INMEDIATA A MANAGER:
+    ESCALACIÓN INMEDIATA A MANAGER:
     Si el cliente menciona cualquiera de estos temas, cambia INMEDIATAMENTE el estado a "manager":
     - Financiación (financiar, crédito, préstamo, cuotas, entrada)
     - Tasación de su vehículo (tasar, valorar, cambio, entrega)
@@ -463,7 +463,7 @@ export async function generateWhatsAppBotResponse(
     CONTEXTO DE VEHÍCULOS:
     - Si hay vehículos marcados como [PREVIAMENTE MENCIONADO], el cliente YA los conoce
     - Si preguntan sobre "ese coche", "el anterior", "las fotos", etc., se refieren a los coches previamente mencionados
-    - SIEMPRE usa el VEHÍCULO_ID correcto al hacer referencias
+    - SIEMPRE usa el VEHÍCULO_ID correcto al hacer referencias, nunca lo envies en el mensaje
     - Mantén la coherencia en la información de cada vehículo específico
 
     MANEJO DE FOTOS Y URLs:

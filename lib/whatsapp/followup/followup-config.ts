@@ -3,7 +3,7 @@ export const FOLLOW_UP_CONFIG = {
   MESSAGE_DELAY: 15 * 1000, // 15 seconds
 
   // Follow-up thresholds (in milliseconds)
-  FOLLOW_UP_THRESHOLD: 1 * 60 * 1000, // 1 minute for testing
+  FOLLOW_UP_THRESHOLD: 23 * 60 * 60 * 1000, // 23 hours
 
   // Maximum number of follow-ups before marking as inactive
   MAX_FOLLOW_UPS: 3,

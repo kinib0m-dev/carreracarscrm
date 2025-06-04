@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import { trpc } from "@/trpc/client";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -29,106 +29,62 @@ export function useCarStockList(
   // State for filters
   const [filters, setFilters] = useState<FilterCarStockSchema>(defaultFilters);
 
-  // Keep track of the last successful pagination to avoid resets during loading
-  const [lastPagination, setLastPagination] = useState({
-    page: defaultFilters.page,
-    limit: defaultFilters.limit,
-    totalCount: 0,
-    totalPages: 0,
-  });
-
   // Fetch car stock items with trpc
   const { data, isLoading, isError, error, refetch } = trpc.stock.list.useQuery(
     filters,
     {
       staleTime: 30 * 1000, // 30 seconds
+      refetchOnWindowFocus: false, // Prevent unnecessary refetches
     }
   );
 
-  // Computed properties
+  // Rest of the hook remains the same...
   const carStockItems = data?.carStock || [];
-
-  // Update last pagination when we get new data using useEffect
-  useEffect(() => {
-    if (data?.pagination) {
-      setLastPagination(data.pagination);
-    }
-  }, [data?.pagination]);
-
-  // Use current data pagination if available, otherwise use last known pagination with current filter page
   const pagination = data?.pagination || {
-    ...lastPagination,
-    page: filters.page, // Always reflect the current filter page
+    page: filters.page,
+    limit: filters.limit,
+    totalCount: 0,
+    totalPages: 0,
   };
 
-  // Update filters
-  const updateFilters = (newFilters: Partial<FilterCarStockSchema>) => {
-    setFilters((prevFilters) => {
-      // Check if the new filters would actually change anything
-      // Treat undefined values as "no change" for comparison
-      const wouldChange = Object.keys(newFilters).some((key) => {
-        const typedKey = key as keyof FilterCarStockSchema;
-        const newValue = newFilters[typedKey];
-        const currentValue = prevFilters[typedKey];
+  // Update filters function
+  const updateFilters = useCallback(
+    (newFilters: Partial<FilterCarStockSchema>) => {
+      setFilters((prevFilters) => {
+        // Create the updated filters
+        const updated = { ...prevFilters, ...newFilters };
 
-        // If new value is undefined, it's not a real change
-        if (newValue === undefined) {
-          return false;
+        // Reset to page 1 if any filter other than page changed
+        const nonPageFilters = Object.keys(newFilters).filter(
+          (key) => key !== "page"
+        );
+        if (nonPageFilters.length > 0 && newFilters.page === undefined) {
+          updated.page = 1;
         }
 
-        return newValue !== currentValue;
+        return updated;
       });
-
-      // Special check: if this looks like a filters reset call (search: undefined + page: 1),
-      // and we're not actually changing the search, ignore it completely
-      const isFilterResetCall =
-        Object.keys(newFilters).length === 2 &&
-        newFilters.search === undefined &&
-        newFilters.page === 1 &&
-        (prevFilters.search === undefined || prevFilters.search === null);
-
-      if (!wouldChange || isFilterResetCall) {
-        return prevFilters; // No change, return the same object
-      }
-
-      // Only reset to page 1 if we're actually changing non-page filters
-      const nonPageKeys = Object.keys(newFilters).filter(
-        (key) => key !== "page"
-      ) as (keyof FilterCarStockSchema)[];
-      const hasRealFilterChanges = nonPageKeys.some(
-        (key) =>
-          newFilters[key] !== undefined && newFilters[key] !== prevFilters[key]
-      );
-
-      const shouldResetPage =
-        hasRealFilterChanges && newFilters.page === undefined;
-
-      const updated = {
-        ...prevFilters,
-        ...newFilters,
-        page:
-          newFilters.page !== undefined
-            ? newFilters.page
-            : shouldResetPage
-              ? 1
-              : prevFilters.page,
-      };
-
-      return updated;
-    });
-  };
+    },
+    []
+  );
 
   // Reset filters
-  const resetFilters = () => {
+  const resetFilters = useCallback(() => {
     setFilters(defaultFilters);
-  };
+  }, []);
 
   // Handle pagination
-  const goToPage = (page: number) => {
-    if (page < 1 || (pagination.totalPages > 0 && page > pagination.totalPages))
-      return;
-    updateFilters({ page });
-  };
+  const goToPage = useCallback(
+    (page: number) => {
+      if (
+        page < 1 ||
+        (pagination.totalPages > 0 && page > pagination.totalPages)
+      )
+        return;
+      updateFilters({ page });
+    },
+    [pagination.totalPages, updateFilters]
+  );
 
   return {
     carStockItems,

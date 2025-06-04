@@ -316,7 +316,7 @@ export const stockRouter = createTRPCRouter({
         // Calculate offset for pagination
         const offset = (page - 1) * limit;
 
-        // Start building the base query conditions
+        // Start building the base query conditions array
         const conditions = [];
 
         // Apply filters
@@ -348,21 +348,21 @@ export const stockRouter = createTRPCRouter({
           conditions.push(lte(carStock.precio_venta, precio_max));
         }
 
-        if (kilometros_min) {
+        if (kilometros_min !== undefined) {
           conditions.push(gte(carStock.kilometros, kilometros_min));
         }
 
-        if (kilometros_max) {
+        if (kilometros_max !== undefined) {
           conditions.push(lte(carStock.kilometros, kilometros_max));
         }
 
         // Apply search filter if provided
-        if (search) {
-          const likePattern = `%${search}%`;
+        if (search && search.trim()) {
+          const likePattern = `%${search.trim()}%`;
           conditions.push(
             or(
-              ilike(carStock.marca, likePattern),
-              ilike(carStock.modelo, likePattern),
+              ilike(carStock.marca || "", likePattern),
+              ilike(carStock.modelo || "", likePattern),
               ilike(carStock.description || "", likePattern),
               ilike(carStock.vin || "", likePattern),
               ilike(carStock.matricula || "", likePattern)
@@ -406,8 +406,8 @@ export const stockRouter = createTRPCRouter({
           case "precio_venta":
             orderByClause =
               sortDirection === "asc"
-                ? asc(carStock.precio_venta)
-                : desc(carStock.precio_venta);
+                ? sql`${carStock.precio_venta}::numeric ASC`
+                : sql`${carStock.precio_venta}::numeric DESC`;
             break;
           case "kilometros":
             orderByClause =

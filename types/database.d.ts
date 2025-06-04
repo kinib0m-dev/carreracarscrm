@@ -75,7 +75,7 @@ export interface WhatsAppMessageRecord {
   phoneNumber: string;
   whatsappTimestamp: Date;
   status: string;
-  metadata?: string | null;
+  metadata?: string | undefined;
   createdAt: Date;
   updatedAt: Date;
 }

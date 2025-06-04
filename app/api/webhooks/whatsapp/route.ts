@@ -8,7 +8,10 @@ import {
   webhookLogs,
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { generateWhatsAppBotResponse } from "@/lib/whatsapp/bot-response";
+import {
+  generateWhatsAppBotResponse,
+  saveCarContextToMessage,
+} from "@/lib/whatsapp/bot-response";
 import {
   saveWhatsAppMessage,
   updateMessageStatus,
@@ -19,8 +22,6 @@ import {
 } from "@/lib/whatsapp/utils/whatsapp-bot";
 import { setNextFollowUpDate } from "@/lib/whatsapp/followup/followup-service";
 import { FOLLOW_UP_CONFIG } from "@/lib/whatsapp/followup/followup-config";
-import { sendManagerEscalationEmail } from "@/lib/utils/manager-emails";
-// import { addMessageToQueue } from "@/lib/whatsapp/message-debouncing";
 import type {
   WhatsAppContact,
   WhatsAppMessage,
@@ -28,8 +29,33 @@ import type {
   WhatsAppAPIResponse,
 } from "@/types/whatsapp";
 import type { Lead } from "@/types/database";
+import type { RelevantCar } from "@/types/bot";
 
 const WEBHOOK_VERIFY_TOKEN = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
+
+// Define types for lead update data
+interface LeadUpdateData {
+  status?: (typeof leadStatusEnum.enumValues)[number];
+  budget?: string;
+  expectedPurchaseTimeframe?: (typeof timeframeEnum.enumValues)[number];
+  type?: (typeof leadTypeEnum.enumValues)[number];
+  lastContactedAt?: Date;
+  lastMessageAt?: Date;
+  nextFollowUpDate?: Date;
+  followUpCount?: number;
+  updatedAt?: Date;
+}
+
+// Define type for message metadata
+interface MessageMetadata {
+  respondingToMessage?: string;
+  hasCarContext?: boolean;
+  selectedCars?: string[];
+  carCount?: number;
+  timestamp?: string;
+  isWelcomeMessage?: boolean;
+  [key: string]: unknown; // Allow additional properties
+}
 
 // GET - Webhook verification
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -98,10 +124,10 @@ async function processWhatsAppWebhook(
           }
         }
 
-        // Process incoming messages with debouncing
+        // Process incoming messages
         if (value.messages) {
           for (const message of value.messages) {
-            await handleIncomingMessageWithDebouncing(message);
+            await handleIncomingMessage(message);
           }
         }
 
@@ -179,6 +205,11 @@ async function sendWelcomeMessage(
       await whatsappBotAPI.sendBotMessage(phone, welcomeMessage);
 
     if (sentMessage?.messages?.[0]) {
+      // Prepare welcome message metadata
+      const welcomeMetadata: MessageMetadata = {
+        isWelcomeMessage: true,
+      };
+
       // Save the welcome message to database
       await saveWhatsAppMessage({
         leadId,
@@ -187,9 +218,7 @@ async function sendWelcomeMessage(
         content: welcomeMessage,
         phoneNumber: phone,
         status: "sent",
-        metadata: {
-          isWelcomeMessage: true,
-        },
+        metadata: welcomeMetadata,
       });
 
       // Update lead status to "contactado"
@@ -206,10 +235,8 @@ async function sendWelcomeMessage(
   }
 }
 
-// New debounced message handler
-async function handleIncomingMessageWithDebouncing(
-  message: WhatsAppMessage
-): Promise<void> {
+// Enhanced message handler with car context support
+async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
   try {
     const { from, id: messageId, text, timestamp } = message;
     const phone = `+${from}`;
@@ -255,72 +282,42 @@ async function handleIncomingMessageWithDebouncing(
       status: "received",
     });
 
-    // Add message to debouncing queue
-    /*
-    await addMessageToQueue(
-      lead.id,
-      messageId,
-      messageText,
-      phone,
-      new Date(parseInt(timestamp) * 1000),
-      processAccumulatedMessages
-    );
-    */
-    await processAccumulatedMessages(lead.id, messageText, [messageId]);
+    // Process the message with enhanced bot response
+    await processMessage(lead, messageText, messageId);
   } catch (error) {
     console.error("Error handling incoming message:", error);
   }
 }
 
-// Process accumulated messages as one conversation
-async function processAccumulatedMessages(
-  leadId: string,
-  combinedMessage: string,
-  messageIds: string[]
+// Enhanced message processing with car context
+async function processMessage(
+  lead: Lead,
+  messageText: string,
+  messageId: string
 ): Promise<void> {
   try {
-    // Get lead info
-    const lead = await db
-      .select()
-      .from(leads)
-      .where(eq(leads.id, leadId))
-      .limit(1)
-      .then((results) => results[0] as Lead | undefined);
-
-    if (!lead) {
-      console.error(
-        `Lead ${leadId} not found when processing accumulated messages`
-      );
-      return;
-    }
-
-    console.log(
-      `🔄 Processing combined message for ${lead.name}: "${combinedMessage}"`
-    );
+    console.log(`🔄 Processing message for ${lead.name}: "${messageText}"`);
 
     // Store the previous status to check for escalation
     const previousStatus = lead.status;
 
     // Reset follow-up count and set next follow-up since they responded
-    await setNextFollowUpDate(leadId);
+    await setNextFollowUpDate(lead.id);
 
-    // Generate bot response for the combined message
-    const { response: botResponse, leadUpdate } =
-      await generateWhatsAppBotResponse(combinedMessage, leadId);
+    // Generate enhanced bot response with car context
+    const {
+      response: botResponse,
+      leadUpdate,
+      selectedCars,
+    } = await generateWhatsAppBotResponse(messageText, lead.id);
+
+    console.log(
+      `📋 Bot response generated. Selected cars: ${selectedCars?.length || 0}`
+    );
 
     // Apply lead updates to database
     if (leadUpdate && Object.keys(leadUpdate).length > 0) {
-      const updateData: Partial<{
-        status: (typeof leadStatusEnum.enumValues)[number];
-        budget: string;
-        expectedPurchaseTimeframe: (typeof timeframeEnum.enumValues)[number];
-        type: (typeof leadTypeEnum.enumValues)[number];
-        lastContactedAt: Date;
-        lastMessageAt: Date;
-        nextFollowUpDate: Date;
-        followUpCount: number;
-        updatedAt: Date;
-      }> = {
+      const updateData: LeadUpdateData = {
         updatedAt: new Date(),
         lastContactedAt: new Date(),
         lastMessageAt: new Date(),
@@ -351,7 +348,7 @@ async function processAccumulatedMessages(
       }
 
       // Update lead in database
-      await db.update(leads).set(updateData).where(eq(leads.id, leadId));
+      await db.update(leads).set(updateData).where(eq(leads.id, lead.id));
 
       // Check if lead was escalated to manager status and send email notification
       if (updateData.status === "manager" && previousStatus !== "manager") {
@@ -360,12 +357,19 @@ async function processAccumulatedMessages(
         );
 
         // Send manager escalation email in the background (don't wait for it)
-        sendManagerEscalationEmail(
+        const { sendEnhancedManagerEscalationEmail } = await import(
+          "@/lib/utils/manager-emails"
+        );
+        sendEnhancedManagerEscalationEmail(
+          lead.id,
           lead.name,
           lead.phone || "No phone provided",
           lead.email
         ).catch((emailError) => {
-          console.error("Error sending manager escalation email:", emailError);
+          console.error(
+            "Error sending enhanced manager escalation email:",
+            emailError
+          );
         });
       }
 
@@ -382,14 +386,14 @@ async function processAccumulatedMessages(
         const { updateLeadPreferences } = await import(
           "@/lib/whatsapp/lead-preferences"
         );
-        await updateLeadPreferences(leadId, leadUpdate);
+        await updateLeadPreferences(lead.id, leadUpdate);
       }
 
       if (leadUpdate.budget) {
         const { updateLeadBudgetPreferences } = await import(
           "@/lib/whatsapp/lead-preferences"
         );
-        await updateLeadBudgetPreferences(leadId, leadUpdate.budget);
+        await updateLeadBudgetPreferences(lead.id, leadUpdate.budget);
       }
     }
 
@@ -401,64 +405,73 @@ async function processAccumulatedMessages(
       setTimeout(resolve, FOLLOW_UP_CONFIG.MESSAGE_DELAY)
     );
 
-    // Send bot response FIRST
+    // Send bot response
     console.log(`📤 Sending bot response to ${lead.phone}: "${botResponse}"`);
     const sentMessage = await whatsappBotAPI.sendBotMessage(
       lead.phone,
       botResponse
     );
 
-    // Save outbound message to database
+    // Save outbound message to database with enhanced metadata
     if (sentMessage?.messages?.[0]) {
+      const outboundMessageId = sentMessage.messages[0].id;
+
+      // Prepare metadata with car context
+      const messageMetadata: MessageMetadata = {
+        respondingToMessage: messageId,
+        hasCarContext: !!(selectedCars && selectedCars.length > 0),
+        timestamp: new Date().toISOString(),
+      };
+
+      // Add selected car IDs to metadata if available
+      if (selectedCars && selectedCars.length > 0) {
+        messageMetadata.selectedCars = selectedCars.map(
+          (car: RelevantCar) => car.id
+        );
+        messageMetadata.carCount = selectedCars.length;
+      }
+
       await saveWhatsAppMessage({
-        leadId,
-        whatsappMessageId: sentMessage.messages[0].id,
+        leadId: lead.id,
+        whatsappMessageId: outboundMessageId,
         direction: "outbound",
         content: botResponse,
         phoneNumber: lead.phone,
         status: "sent",
-        metadata: {
-          respondingToMessages: messageIds.length,
-          combinedMessage: true,
-        },
+        metadata: messageMetadata,
       });
+
+      // Save car context for future reference if cars were selected
+      if (selectedCars && selectedCars.length > 0) {
+        await saveCarContextToMessage(lead.id, outboundMessageId, selectedCars);
+        console.log(`📚 Saved context for ${selectedCars.length} cars`);
+      }
 
       console.log(`✅ Bot response sent successfully`);
     }
 
-    // Mark messages as read AFTER sending the response (with a small delay to avoid race conditions)
+    // Mark original message as read AFTER sending the response
     setTimeout(async () => {
-      for (const messageId of messageIds) {
-        try {
-          await whatsappBotAPI.markAsRead(messageId);
-          console.log(`📖 Marked message ${messageId} as read`);
-        } catch (error) {
-          console.error(`Error marking message ${messageId} as read:`, error);
-          // Don't fail the whole process if marking as read fails
-        }
+      try {
+        await whatsappBotAPI.markAsRead(messageId);
+        console.log(`📖 Marked message ${messageId} as read`);
+      } catch (error) {
+        console.error(`Error marking message ${messageId} as read:`, error);
+        // Don't fail the whole process if marking as read fails
       }
     }, 1000); // 1 second delay
   } catch (error) {
-    console.error("Error processing accumulated messages:", error);
+    console.error("Error processing message:", error);
 
     // Send fallback message
     try {
-      const lead = await db
-        .select()
-        .from(leads)
-        .where(eq(leads.id, leadId))
-        .limit(1)
-        .then((results) => results[0] as Lead | undefined);
-
-      if (lead) {
-        await new Promise((resolve) =>
-          setTimeout(resolve, FOLLOW_UP_CONFIG.MESSAGE_DELAY)
-        );
-        await whatsappBotAPI.sendBotMessage(
-          lead.phone,
-          "Perdón, ha habido un problema técnico. Un momento por favor..."
-        );
-      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, FOLLOW_UP_CONFIG.MESSAGE_DELAY)
+      );
+      await whatsappBotAPI.sendBotMessage(
+        lead.phone,
+        "Perdón, ha habido un problema técnico. Un momento por favor..."
+      );
     } catch (fallbackError) {
       console.error("Error sending fallback message:", fallbackError);
     }

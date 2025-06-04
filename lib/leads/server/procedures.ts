@@ -308,9 +308,10 @@ export const leadRouter = createTRPCRouter({
 
           // Send manager escalation email in the background (don't wait for it)
           sendManagerEscalationEmail(
-            input.name, // Use updated name
-            input.phone || currentLead.phone || "No phone provided",
-            input.email || currentLead.email
+            id, // Pass the lead ID, not the name
+            input.name, // Lead name
+            input.phone || currentLead.phone || "No phone provided", // Ensure string
+            input.email || currentLead.email // Email can be null
           ).catch((emailError) => {
             console.error(
               "Error sending manager escalation email:",

@@ -357,10 +357,10 @@ async function processMessage(
         );
 
         // Send manager escalation email in the background (don't wait for it)
-        const { sendEnhancedManagerEscalationEmail } = await import(
+        const { sendManagerEscalationEmail } = await import(
           "@/lib/utils/manager-emails"
         );
-        sendEnhancedManagerEscalationEmail(
+        sendManagerEscalationEmail(
           lead.id,
           lead.name,
           lead.phone || "No phone provided",

@@ -8,7 +8,7 @@ const MANAGER_EMAIL = "carrerandcars@gmail.com";
 /**
  * Enhanced manager escalation email with car context and conversation summary
  */
-export async function sendEnhancedManagerEscalationEmail(
+export async function sendManagerEscalationEmail(
   leadId: string,
   leadName: string,
   leadPhone: string,

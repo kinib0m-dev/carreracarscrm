@@ -242,29 +242,30 @@ export const emailRouter = createTRPCRouter({
   // List email templates with filters, pagination, and sorting
   list: protectedProcedure
     .input(filterEmailTemplateSchema)
-    .query(async ({ ctx, input }) => {
+    .query(async ({ input }) => {
       try {
-        const userId = ctx.userId as string;
         const { search, page, limit, sortBy, sortDirection } = input;
 
         // Calculate offset for pagination
         const offset = (page - 1) * limit;
 
         // Start building the base query conditions
-        let queryConditions = and(eq(emailTemplates.userId, userId));
+        const conditions = [];
 
         // Apply search filter if provided
-        if (search) {
-          const likePattern = `%${search}%`;
-          queryConditions = and(
-            queryConditions,
+        if (search && search.trim()) {
+          const likePattern = `%${search.trim()}%`;
+          conditions.push(
             or(
               ilike(emailTemplates.name, likePattern),
               ilike(emailTemplates.subject, likePattern),
-              ilike(emailTemplates.description, likePattern)
+              ilike(emailTemplates.description || "", likePattern)
             )
           );
         }
+
+        // Combine all conditions
+        const queryConditions = and(...conditions);
 
         // Count total matching templates (for pagination)
         const totalCountResult = await db

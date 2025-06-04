@@ -452,26 +452,26 @@ export const leadRouter = createTRPCRouter({
       // Calculate offset for pagination
       const offset = (page - 1) * limit;
 
-      // Start building the base query conditions
-      let queryConditions;
+      // Start building the base query conditions array
+      const conditions = [];
 
-      // Apply additional filters by adding to the conditions
+      // Apply filters
       if (status) {
-        queryConditions = and(queryConditions, eq(leads.status, status));
+        conditions.push(eq(leads.status, status));
       }
 
       if (expectedPurchaseTimeframe) {
-        queryConditions = and(
-          queryConditions,
+        conditions.push(
           eq(leads.expectedPurchaseTimeframe, expectedPurchaseTimeframe)
         );
       }
 
-      // Create a subquery to handle campaign name search
-      let campaignNameSearchCondition;
-      if (search) {
-        const likePattern = `%${search}%`;
-        campaignNameSearchCondition = exists(
+      // Apply search filter if provided
+      if (search && search.trim()) {
+        const likePattern = `%${search.trim()}%`;
+
+        // Create a subquery to handle campaign name search
+        const campaignNameSearchCondition = exists(
           db
             .select({ one: sql`1` })
             .from(campaigns)
@@ -482,13 +482,8 @@ export const leadRouter = createTRPCRouter({
               )
             )
         );
-      }
 
-      // Apply search filter if provided
-      if (search) {
-        const likePattern = `%${search}%`;
-        queryConditions = and(
-          queryConditions,
+        conditions.push(
           or(
             ilike(leads.name, likePattern),
             ilike(leads.email || "", likePattern),
@@ -497,6 +492,10 @@ export const leadRouter = createTRPCRouter({
           )
         );
       }
+
+      // Combine all conditions
+      const queryConditions =
+        conditions.length > 0 ? and(...conditions) : undefined;
 
       // Count total matching leads (for pagination)
       const totalCountResult = await db

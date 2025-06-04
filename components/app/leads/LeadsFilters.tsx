@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { leadStatusEnum, timeframeEnum } from "@/db/schema";
 import { FilterLeadSchema } from "@/lib/leads/validation/leads-schema";
 
 type LeadFiltersProps = {
-  filters: Partial<FilterLeadSchema>;
+  filters: FilterLeadSchema;
   updateFilters: (filters: Partial<FilterLeadSchema>) => void;
   resetFilters: () => void;
 };
@@ -26,49 +26,53 @@ export function LeadsFilters({
   updateFilters,
   resetFilters,
 }: LeadFiltersProps) {
-  // Local state for filter inputs before applying them
-  const [searchInput, setSearchInput] = useState(filters.search || "");
+  // Local state for immediate UI updates before debouncing
+  const [localSearch, setLocalSearch] = useState(filters.search || "");
 
-  // Set up the debounce effect - modified to prevent infinite loops
+  // Debounce helper
+  const useDebounce = (value: string, delay: number) => {
+    const [debouncedValue, setDebouncedValue] = useState(value);
+
+    useEffect(() => {
+      const handler = setTimeout(() => {
+        setDebouncedValue(value);
+      }, delay);
+
+      return () => {
+        clearTimeout(handler);
+      };
+    }, [value, delay]);
+
+    return debouncedValue;
+  };
+
+  // Debounced search value
+  const debouncedSearch = useDebounce(localSearch, 500);
+
+  // Apply debounced search
   useEffect(() => {
-    // Create a timeout to update the debounced value after 500ms
-    const timer = setTimeout(() => {
-      // Only trigger search if the term has actually changed from the current filter
-      if (searchInput !== filters.search) {
-        updateFilters({ search: searchInput || undefined, page: 1 });
-      }
-    }, 500);
-
-    // Clean up the timeout if searchInput changes before the delay has passed
-    return () => clearTimeout(timer);
-  }, [searchInput, filters.search, updateFilters]);
-
-  // Apply search filter when user presses Enter or clicks search button
-  const handleSearch = () => {
-    updateFilters({ search: searchInput || undefined, page: 1 });
-  };
-
-  // Handle key press event for search input
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      handleSearch();
+    if (debouncedSearch !== (filters.search || "")) {
+      updateFilters({ search: debouncedSearch || undefined });
     }
-  };
+  }, [debouncedSearch, filters.search, updateFilters]);
 
-  // Clear all filters
-  const handleResetFilters = () => {
-    setSearchInput("");
-    resetFilters();
-  };
+  // Sync local state with prop changes
+  useEffect(() => {
+    setLocalSearch(filters.search || "");
+  }, [filters.search]);
+
+  // Handle search input changes
+  const handleSearchChange = useCallback((value: string) => {
+    setLocalSearch(value);
+  }, []);
 
   // Handle status change
   const handleStatusChange = (value: string) => {
     if (value === "all_statuses") {
-      updateFilters({ status: undefined, page: 1 });
+      updateFilters({ status: undefined });
     } else {
       updateFilters({
         status: value as (typeof leadStatusEnum.enumValues)[number],
-        page: 1,
       });
     }
   };
@@ -76,12 +80,11 @@ export function LeadsFilters({
   // Handle timeframe change
   const handleTimeframeChange = (value: string) => {
     if (value === "all_timeframes") {
-      updateFilters({ expectedPurchaseTimeframe: undefined, page: 1 });
+      updateFilters({ expectedPurchaseTimeframe: undefined });
     } else {
       updateFilters({
         expectedPurchaseTimeframe:
           value as (typeof timeframeEnum.enumValues)[number],
-        page: 1,
       });
     }
   };
@@ -93,7 +96,13 @@ export function LeadsFilters({
       "asc" | "desc",
     ];
 
-    updateFilters({ sortBy, sortDirection, page: 1 });
+    updateFilters({ sortBy, sortDirection });
+  };
+
+  // Clear all filters
+  const handleResetFilters = () => {
+    setLocalSearch("");
+    resetFilters();
   };
 
   // Create a stable sort value for the select
@@ -108,23 +117,15 @@ export function LeadsFilters({
             <div className="relative w-full sm:w-64">
               <Input
                 placeholder="Search leads..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                onKeyDown={handleKeyPress}
+                value={localSearch}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className="pl-8"
               />
               <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             </div>
-            <Button
-              size="sm"
-              onClick={handleSearch}
-              className="w-full sm:w-auto"
-            >
-              Search
-            </Button>
           </div>
 
-          {/* Filters */}
+          {/* Status Filter */}
           <Select
             value={filters.status || "all_statuses"}
             onValueChange={handleStatusChange}
@@ -144,6 +145,7 @@ export function LeadsFilters({
             </SelectContent>
           </Select>
 
+          {/* Timeframe Filter */}
           <Select
             value={filters.expectedPurchaseTimeframe || "all_timeframes"}
             onValueChange={handleTimeframeChange}
@@ -163,6 +165,7 @@ export function LeadsFilters({
             </SelectContent>
           </Select>
 
+          {/* Sort Options */}
           <Select value={sortValue} onValueChange={handleSortChange}>
             <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Sort by" />

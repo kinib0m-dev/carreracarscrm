@@ -221,36 +221,34 @@ export const botDocsRouter = createTRPCRouter({
   // List bot documents with filters, pagination, and sorting
   list: protectedProcedure
     .input(filterBotDocumentSchema)
-    .query(async ({ ctx, input }) => {
+    .query(async ({ input }) => {
       try {
-        const userId = ctx.userId as string;
         const { category, search, page, limit, sortBy, sortDirection } = input;
 
         // Calculate offset for pagination
         const offset = (page - 1) * limit;
 
         // Start building the base query conditions
-        let queryConditions = eq(botDocuments.userId, userId);
+        const conditions = [];
 
         // Apply additional filters
         if (category) {
-          queryConditions = and(
-            queryConditions,
-            eq(botDocuments.category, category)
-          )!;
+          conditions.push(eq(botDocuments.category, category));
         }
 
         // Apply search filter if provided
-        if (search) {
-          const likePattern = `%${search}%`;
-          queryConditions = and(
-            queryConditions,
+        if (search && search.trim()) {
+          const likePattern = `%${search.trim()}%`;
+          conditions.push(
             or(
               ilike(botDocuments.title, likePattern),
               ilike(botDocuments.content, likePattern)
-            )!
-          )!;
+            )
+          );
         }
+
+        // Combine all conditions
+        const queryConditions = and(...conditions);
 
         // Count total matching documents (for pagination)
         const totalCountResult = await db

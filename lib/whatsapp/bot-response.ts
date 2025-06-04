@@ -406,7 +406,7 @@ export async function generateWhatsAppBotResponse(
           : "[NUEVO]";
 
         context += `${contextMarker} VEHÍCULO_ID: ${car.id}
-        VEHÍCULO: ${carName || "Vehículo sin nombre"}
+        NOMBRE_COMPLETO: ${carName || "Vehículo sin nombre"}
         TIPO: ${car.type}
         PRECIO: ${formattedPrice}
         KILÓMETROS: ${formattedKilometers}
@@ -463,8 +463,16 @@ export async function generateWhatsAppBotResponse(
     CONTEXTO DE VEHÍCULOS:
     - Si hay vehículos marcados como [PREVIAMENTE MENCIONADO], el cliente YA los conoce
     - Si preguntan sobre "ese coche", "el anterior", "las fotos", etc., se refieren a los coches previamente mencionados
-    - SIEMPRE usa el VEHÍCULO_ID correcto al hacer referencias, nunca lo envies en el mensaje
+    - SIEMPRE usa el VEHÍCULO_ID correcto al hacer referencias PERO NUNCA LO MUESTRES EN EL MENSAJE
+    - Cuando menciones un vehículo específico, usa el NOMBRE_COMPLETO con detalles adicionales para que sea más descriptivo
     - Mantén la coherencia en la información de cada vehículo específico
+
+    FORMATO DE NOMBRES DE VEHÍCULOS:
+    - SIEMPRE usa el NOMBRE_COMPLETO del vehículo proporcionado en el contexto
+    - Añade información adicional como año, motor, color o kilómetros para ser más específico
+    - Ejemplo: En lugar de solo "Ford Transit Custom", di "Ford Transit Custom Kombi 2.0 TDCI de 2019"
+    - O: "Nissan Qashqai 1.5 DCI de 85.000 km en color blanco"
+    - O: "BMW Serie 3 320d Automático del 2020 con solo 45.000 km"
 
     MANEJO DE FOTOS Y URLs:
     - Si piden fotos de un coche específico mencionado antes, usa SOLO la URL exacta de ese vehículo
@@ -481,8 +489,9 @@ export async function generateWhatsAppBotResponse(
     4. Usa interjecciones como: "hola!", "pues mira", "la verdad", "vale", etc.
     5. NO uses listas ni numeración en los mensajes.
     6. NO uses asteriscos (*), viñetas (•), corchetes [] ni llaves {} en el texto visible
-    7. Usa español de España: "vale", "coche", "genial", nunca "carro", "celular", etc.
-    8. Si mencionas precios: formato español (18.000€, 24.990€).
+    7. NUNCA MUESTRES VEHÍCULO_ID en el mensaje - solo úsalo internamente para el JSON
+    8. Usa español de España: "vale", "coche", "genial", nunca "carro", "celular", etc.
+    9. Si mencionas precios: formato español (18.000€, 24.990€).
 
     FLUJO DE CONVERSACIÓN:
     nuevo → contactado → activo → calificado → propuesta → evaluando → manager
@@ -498,6 +507,7 @@ export async function generateWhatsAppBotResponse(
     LEAD_UPDATE_JSON: {"status": "estado_apropiado", "budget": "presupuesto_mencionado", "selectedCarIds": ["id1", "id2"]}
 
     Solo incluye campos que han cambiado. Si hay escalación, asegúrate de cambiar status a "manager".
+    IMPORTANTE: El VEHÍCULO_ID solo va en el JSON, NUNCA en el texto del mensaje.
 
     CONTEXTO ACTUAL: ${context}
     `;
@@ -519,7 +529,7 @@ export async function generateWhatsAppBotResponse(
           role: "model",
           parts: [
             {
-              text: "Entendido. Seguiré todas las indicaciones como Pedro, mantendré el contexto de los vehículos mencionados, usaré URLs directamente sin formato de lista, y escalaré naturalmente a manager cuando detecte palabras clave.",
+              text: "Entendido. Seguiré todas las indicaciones como Pedro, mantendré el contexto de los vehículos mencionados, usaré nombres completos y descriptivos de los vehículos con detalles adicionales, nunca mostraré VEHÍCULO_ID en el mensaje (solo en el JSON), usaré URLs directamente sin formato de lista, y escalaré naturalmente a manager cuando detecte palabras clave.",
             },
           ],
         },
@@ -561,7 +571,7 @@ export async function generateWhatsAppBotResponse(
       try {
         const updateData = JSON.parse(jsonMatch[1]) as LeadUpdateData;
 
-        // Clean the response by removing ALL variations of the JSON
+        // Clean the response by removing ALL variations of the JSON AND any VEHÍCULO_ID references
         botResponse = responseText
           // Remove LEAD_UPDATE_JSON with various formats
           .replace(
@@ -576,6 +586,10 @@ export async function generateWhatsAppBotResponse(
           .replace(/\{[^}]*"status"[^}]*\}/gi, "")
           // Remove any remaining json text blocks
           .replace(/json\s*\{[^}]*\}/gi, "")
+          // CRITICAL: Remove any VEHÍCULO_ID references that leaked into the message
+          .replace(/\[VEHÍCULO_ID:\s*[a-f0-9-]+\]/gi, "")
+          .replace(/VEHÍCULO_ID:\s*[a-f0-9-]+/gi, "")
+          .replace(/\[([a-f0-9-]{36})\]/gi, "")
           // Clean up multiple newlines and trim
           .replace(/\n\s*\n\s*\n/g, "\n\n")
           .trim();
@@ -633,6 +647,10 @@ export async function generateWhatsAppBotResponse(
           .replace(/json\s*\{[\s\S]*$/gi, "")
           .replace(/```[\s\S]*?```/gi, "")
           .replace(/\{[^}]*"status"[^}]*\}/gi, "")
+          // Remove VEHÍCULO_ID references
+          .replace(/\[VEHÍCULO_ID:\s*[a-f0-9-]+\]/gi, "")
+          .replace(/VEHÍCULO_ID:\s*[a-f0-9-]+/gi, "")
+          .replace(/\[([a-f0-9-]{36})\]/gi, "")
           .trim();
 
         // Still apply escalation if needed
@@ -652,6 +670,13 @@ export async function generateWhatsAppBotResponse(
         lastMessageAt: new Date(),
       };
     }
+
+    // Final cleanup to ensure no VEHÍCULO_ID leaked through
+    botResponse = botResponse
+      .replace(/\[VEHÍCULO_ID:\s*[a-f0-9-]+\]/gi, "")
+      .replace(/VEHÍCULO_ID:\s*[a-f0-9-]+/gi, "")
+      .replace(/\[([a-f0-9-]{36})\]/gi, "")
+      .trim();
 
     // Determine which cars to return for context
     const carsToReturn =

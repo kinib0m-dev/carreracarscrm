@@ -111,8 +111,6 @@ async function processWhatsAppWebhook(
     for (const change of entry.changes) {
       if (change.field === "messages") {
         const value = change.value;
-
-        // Process new contacts - REMOVED: No longer creating new leads automatically
         // We now only handle messages from existing leads
 
         // Process incoming messages
@@ -144,7 +142,7 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
       return;
     }
 
-    // Find existing lead - DO NOT CREATE NEW LEAD
+    // Find existing lead
     const lead = await db
       .select()
       .from(leads)
@@ -159,10 +157,6 @@ async function handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
       );
       return;
     }
-
-    console.log(
-      `📥 Processing message from existing lead ${lead.name}: "${messageText}"`
-    );
 
     // Save incoming message to database immediately
     await saveWhatsAppMessage({
@@ -189,8 +183,6 @@ async function processMessage(
   messageId: string
 ): Promise<void> {
   try {
-    console.log(`🔄 Processing message for ${lead.name}: "${messageText}"`);
-
     // Store the previous status to check for escalation
     const previousStatus = lead.status;
 
@@ -203,10 +195,6 @@ async function processMessage(
       leadUpdate,
       selectedCars,
     } = await generateWhatsAppBotResponse(messageText, lead.id);
-
-    console.log(
-      `📋 Bot response generated. Selected cars: ${selectedCars?.length || 0}`
-    );
 
     // Apply lead updates to database
     if (leadUpdate && Object.keys(leadUpdate).length > 0) {
@@ -245,10 +233,6 @@ async function processMessage(
 
       // Check if lead was escalated to manager status and send email notification
       if (updateData.status === "manager" && previousStatus !== "manager") {
-        console.log(
-          `🚀 Lead ${lead.name} escalated to manager status - sending email notification`
-        );
-
         // Send manager escalation email in the background (don't wait for it)
         const { sendManagerEscalationEmail } = await import(
           "@/lib/utils/manager-emails"
@@ -291,15 +275,11 @@ async function processMessage(
     }
 
     // Add natural delay before responding
-    console.log(
-      `⏱️ Adding ${FOLLOW_UP_CONFIG.MESSAGE_DELAY / 1000}s delay before bot response...`
-    );
     await new Promise((resolve) =>
       setTimeout(resolve, FOLLOW_UP_CONFIG.MESSAGE_DELAY)
     );
 
     // Send bot response
-    console.log(`📤 Sending bot response to ${lead.phone}: "${botResponse}"`);
     const sentMessage = await whatsappBotAPI.sendBotMessage(
       lead.phone,
       botResponse
@@ -337,17 +317,13 @@ async function processMessage(
       // Save car context for future reference if cars were selected
       if (selectedCars && selectedCars.length > 0) {
         await saveCarContextToMessage(lead.id, outboundMessageId, selectedCars);
-        console.log(`📚 Saved context for ${selectedCars.length} cars`);
       }
-
-      console.log(`✅ Bot response sent successfully`);
     }
 
     // Mark original message as read AFTER sending the response
     setTimeout(async () => {
       try {
         await whatsappBotAPI.markAsRead(messageId);
-        console.log(`📖 Marked message ${messageId} as read`);
       } catch (error) {
         console.error(`Error marking message ${messageId} as read:`, error);
         // Don't fail the whole process if marking as read fails

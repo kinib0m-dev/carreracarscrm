@@ -59,17 +59,13 @@ export const botDocsRouter = createTRPCRouter({
   // Get a bot document by ID
   getById: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
-    .query(async ({ ctx, input }) => {
+    .query(async ({ input }) => {
       try {
-        const userId = ctx.userId as string;
-
         // Get the document
         const documentResult = await db
           .select()
           .from(botDocuments)
-          .where(
-            and(eq(botDocuments.id, input.id), eq(botDocuments.userId, userId))
-          )
+          .where(and(eq(botDocuments.id, input.id)))
           .limit(1);
 
         const document = documentResult[0];
@@ -102,16 +98,15 @@ export const botDocsRouter = createTRPCRouter({
   // Update a bot document
   update: protectedProcedure
     .input(updateBotDocumentSchema)
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ input }) => {
       try {
-        const userId = ctx.userId as string;
         const { id, ...updateData } = input;
 
         // Check if document exists and belongs to the user
         const existingDocResult = await db
           .select()
           .from(botDocuments)
-          .where(and(eq(botDocuments.id, id), eq(botDocuments.userId, userId)))
+          .where(and(eq(botDocuments.id, id)))
           .limit(1);
 
         const existingDoc = existingDocResult[0];
@@ -147,7 +142,7 @@ export const botDocsRouter = createTRPCRouter({
             ...embeddingUpdate,
             updatedAt: new Date(),
           })
-          .where(and(eq(botDocuments.id, id), eq(botDocuments.userId, userId)))
+          .where(and(eq(botDocuments.id, id)))
           .returning();
 
         return {
@@ -171,17 +166,13 @@ export const botDocsRouter = createTRPCRouter({
   // Delete a bot document
   delete: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ input }) => {
       try {
-        const userId = ctx.userId as string;
-
         // Check if document exists and belongs to the user
         const existingDocResult = await db
           .select()
           .from(botDocuments)
-          .where(
-            and(eq(botDocuments.id, input.id), eq(botDocuments.userId, userId))
-          )
+          .where(and(eq(botDocuments.id, input.id)))
           .limit(1);
 
         const existingDoc = existingDocResult[0];
@@ -194,11 +185,7 @@ export const botDocsRouter = createTRPCRouter({
         }
 
         // Delete the document
-        await db
-          .delete(botDocuments)
-          .where(
-            and(eq(botDocuments.id, input.id), eq(botDocuments.userId, userId))
-          );
+        await db.delete(botDocuments).where(and(eq(botDocuments.id, input.id)));
 
         return {
           success: true,

@@ -37,8 +37,6 @@ class WhatsAppBotAPI {
   ): Promise<WhatsAppAPIResponse> {
     const formattedPhone = this.formatPhoneNumber(to);
 
-    console.log(`Sending WhatsApp message to ${formattedPhone}: ${message}`);
-
     const payload: WhatsAppOutgoingMessage = {
       messaging_product: "whatsapp",
       to: formattedPhone,
@@ -47,8 +45,6 @@ class WhatsAppBotAPI {
         body: message,
       },
     };
-
-    console.log("WhatsApp message payload:", JSON.stringify(payload, null, 2));
 
     return this.makeRequest("/messages", payload);
   }
@@ -65,8 +61,6 @@ class WhatsAppBotAPI {
       message_id: messageId,
     };
 
-    console.log("Mark as read payload:", JSON.stringify(payload, null, 2));
-
     return this.makeRequest("/messages", payload);
   }
 
@@ -75,7 +69,6 @@ class WhatsAppBotAPI {
    */
   private formatPhoneNumber(phoneNumber: string): string {
     const formatted = phoneNumber.replace(/[^\d]/g, "");
-    console.log(`Formatted phone number: ${phoneNumber} -> ${formatted}`);
     return formatted;
   }
 
@@ -88,9 +81,6 @@ class WhatsAppBotAPI {
   ): Promise<WhatsAppAPIResponse> {
     const url = `${this.baseUrl}${endpoint}`;
 
-    console.log(`Making WhatsApp API request to: ${url}`);
-    console.log("Request payload:", JSON.stringify(payload, null, 2));
-
     try {
       const response = await fetch(url, {
         method: "POST",
@@ -101,12 +91,8 @@ class WhatsAppBotAPI {
         body: JSON.stringify(payload),
       });
 
-      console.log(`WhatsApp API response status: ${response.status}`);
-
       const data = (await response.json()) as WhatsAppAPIResponse &
         WhatsAppAPIError;
-
-      console.log("WhatsApp API response data:", JSON.stringify(data, null, 2));
 
       if (!response.ok) {
         console.error("WhatsApp API Error:", {

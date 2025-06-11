@@ -24,7 +24,6 @@ import { setNextFollowUpDate } from "@/lib/whatsapp/followup/followup-service";
 import { FOLLOW_UP_CONFIG } from "@/lib/whatsapp/followup/followup-config";
 import type { WhatsAppMessage, WhatsAppStatus } from "@/types/whatsapp";
 import type { Lead } from "@/types/database";
-import type { RelevantCar } from "@/types/bot";
 
 const WEBHOOK_VERIFY_TOKEN = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
 
@@ -230,6 +229,7 @@ async function processMessage(
     const previousStatus = lead.status;
 
     // Reset follow-up count and set next follow-up since they responded
+    // This will now respect the status-based follow-up logic
     await setNextFollowUpDate(lead.id);
 
     // Generate enhanced bot response with car context
@@ -258,6 +258,23 @@ async function processMessage(
         ) {
           updateData.status =
             leadUpdate.status as (typeof leadStatusEnum.enumValues)[number];
+
+          // CRITICAL FIX: Clear follow-up date if moving to non-bot status
+          const BOT_MANAGED_STATUSES = [
+            "nuevo",
+            "contactado",
+            "activo",
+            "calificado",
+            "propuesta",
+            "evaluando",
+          ];
+
+          if (!BOT_MANAGED_STATUSES.includes(leadUpdate.status)) {
+            updateData.nextFollowUpDate = undefined;
+            console.log(
+              `🚫 Clearing follow-up date for lead ${lead.id} - moved to status: ${leadUpdate.status}`
+            );
+          }
         }
       }
 
@@ -335,16 +352,14 @@ async function processMessage(
       // Prepare metadata with car context
       const messageMetadata: MessageMetadata = {
         respondingToMessage: messageId,
-        hasCarContext: !!(selectedCars && selectedCars.length > 0),
+        hasCarContext: !!selectedCars && selectedCars.length > 0,
+        carCount: selectedCars?.length || 0,
         timestamp: new Date().toISOString(),
       };
 
-      // Add selected car IDs to metadata if available
+      // Add selected car IDs if any
       if (selectedCars && selectedCars.length > 0) {
-        messageMetadata.selectedCars = selectedCars.map(
-          (car: RelevantCar) => car.id
-        );
-        messageMetadata.carCount = selectedCars.length;
+        messageMetadata.selectedCars = selectedCars.map((car) => car.id);
       }
 
       await saveWhatsAppMessage({
@@ -357,36 +372,19 @@ async function processMessage(
         metadata: messageMetadata,
       });
 
-      // Save car context for future reference if cars were selected
+      // Save car context if relevant cars were found
       if (selectedCars && selectedCars.length > 0) {
         await saveCarContextToMessage(lead.id, outboundMessageId, selectedCars);
       }
     }
 
-    // Mark original message as read AFTER sending the response
-    setTimeout(async () => {
-      try {
-        await whatsappBotAPI.markAsRead(messageId);
-      } catch (error) {
-        console.error(`Error marking message ${messageId} as read:`, error);
-        // Don't fail the whole process if marking as read fails
-      }
-    }, 1000); // 1 second delay
+    console.log(
+      `💬 Processed message for lead ${lead.id} (${lead.name}) - Status: ${
+        leadUpdate?.status || lead.status
+      }`
+    );
   } catch (error) {
-    console.error("Error processing message:", error);
-
-    // Send fallback message
-    try {
-      await new Promise((resolve) =>
-        setTimeout(resolve, FOLLOW_UP_CONFIG.MESSAGE_DELAY)
-      );
-      await whatsappBotAPI.sendBotMessage(
-        lead.phone,
-        "Perdón, ha habido un problema técnico. Un momento por favor..."
-      );
-    } catch (fallbackError) {
-      console.error("Error sending fallback message:", fallbackError);
-    }
+    console.error(`❌ Error processing message for lead ${lead.id}:`, error);
   }
 }
 

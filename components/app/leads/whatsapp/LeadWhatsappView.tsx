@@ -247,51 +247,57 @@ export function LeadWhatsAppConversation({
         )}
       </CardHeader>
 
-      <CardContent className="flex-1 flex flex-col space-y-4 max-h-[600px]">
+      <CardContent className="flex-1 flex flex-col min-h-0 p-0">
         {/* Messages Area */}
-        <ScrollArea className="flex-1 pr-4">
-          <div className="space-y-4">
-            {messages.map((message) => {
-              const isOutbound = message.direction === "outbound";
-              const messageTime =
-                message.whatsappTimestamp || message.createdAt;
+        <div className="flex-1 min-h-0 p-4">
+          <ScrollArea className="h-full">
+            <div className="space-y-4 pr-4">
+              {messages.map((message) => {
+                const isOutbound = message.direction === "outbound";
+                const messageTime =
+                  message.whatsappTimestamp || message.createdAt;
 
-              return (
-                <div
-                  key={message.id}
-                  className={`flex ${isOutbound ? "justify-end" : "justify-start"}`}
-                >
+                return (
                   <div
-                    className={`max-w-[70%] rounded-lg px-3 py-2 ${
-                      isOutbound
-                        ? "bg-green-500 text-white"
-                        : "bg-muted text-foreground"
-                    }`}
+                    key={message.id}
+                    className={`flex ${isOutbound ? "justify-end" : "justify-start"}`}
                   >
-                    <div className="text-sm break-words">{message.content}</div>
                     <div
-                      className={`flex items-center justify-end space-x-1 mt-1 text-xs ${
-                        isOutbound ? "text-green-100" : "text-muted-foreground"
+                      className={`max-w-[70%] rounded-lg px-3 py-2 ${
+                        isOutbound
+                          ? "bg-green-500 text-white"
+                          : "bg-muted text-foreground"
                       }`}
                     >
-                      <span>{formatMessageTime(new Date(messageTime))}</span>
-                      {getStatusIcon(message.status, message.direction)}
-                    </div>
-                    {message.errorMessage && (
-                      <div className="text-xs text-red-200 mt-1">
-                        Error: {message.errorMessage}
+                      <div className="text-sm break-words">
+                        {message.content}
                       </div>
-                    )}
+                      <div
+                        className={`flex items-center justify-end space-x-1 mt-1 text-xs ${
+                          isOutbound
+                            ? "text-green-100"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        <span>{formatMessageTime(new Date(messageTime))}</span>
+                        {getStatusIcon(message.status, message.direction)}
+                      </div>
+                      {message.errorMessage && (
+                        <div className="text-xs text-red-200 mt-1">
+                          Error: {message.errorMessage}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-            <div ref={messagesEndRef} />
-          </div>
-        </ScrollArea>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+          </ScrollArea>
+        </div>
 
         {/* Message Input */}
-        <div className="border-t pt-4">
+        <div className="border-t p-4">
           <div className="flex space-x-2">
             <div className="flex-1">
               <Textarea
@@ -318,7 +324,9 @@ export function LeadWhatsAppConversation({
             </Button>
           </div>
           <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
-            <span>Press enter to send, Shift+Enter to create a new line</span>
+            <span>
+              Press Enter to send. Press Shift+Enter to add a new line.
+            </span>
             {newMessage.length > 0 && (
               <span>{newMessage.length} characters</span>
             )}

@@ -9,6 +9,7 @@ import { stockRouter } from "@/lib/stock/server/procedures";
 import { botDocsRouter } from "@/lib/bot-docs/server/procedures";
 import { playgroundRouter } from "@/lib/playground/server/procedures";
 import { dashboardRouter } from "@/lib/dashboard/server/procedures";
+import { whatsappRouter } from "@/lib/whatsapp/server/procedres";
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -27,6 +28,8 @@ export const appRouter = createTRPCRouter({
   playground: playgroundRouter,
   // Dashboard
   dashboard: dashboardRouter,
+  // Whatsapp
+  whatsapp: whatsappRouter,
 });
 
 // export type definition of API

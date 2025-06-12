@@ -56,6 +56,7 @@ import { TasksPreview } from "../tasks/TaskPreview";
 import { LeadTagsManagement } from "../tags/LeadTagsManagement";
 import { LeadSendEmail } from "../email/LeadsSendEmail";
 import { leadStatusEnum, leadTypeEnum, timeframeEnum } from "@/db/schema";
+import { LeadWhatsAppConversation } from "../whatsapp/LeadWhatsappView";
 
 interface LeadPreferences {
   id: string;
@@ -569,6 +570,7 @@ export function LeadsDetailView({ lead }: LeadsDetailViewProps) {
       >
         <TabsList>
           <TabsTrigger value="emails">Emails</TabsTrigger>
+          <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
           <TabsTrigger value="notes">Notes</TabsTrigger>
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="tags">Tags</TabsTrigger>
@@ -583,6 +585,14 @@ export function LeadsDetailView({ lead }: LeadsDetailViewProps) {
             leadId={lead.id}
             leadName={lead.name}
             leadEmail={lead.email}
+          />
+        </TabsContent>
+
+        <TabsContent value="whatsapp" className="mt-6">
+          <LeadWhatsAppConversation
+            leadId={lead.id}
+            leadName={lead.name}
+            leadPhone={lead.phone}
           />
         </TabsContent>
 

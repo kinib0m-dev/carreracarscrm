@@ -32,6 +32,7 @@ export function LeadsView({
     updateFilters,
     resetFilters,
     goToPage,
+    refetch,
   } = useLeadList({
     page: initialPagination.page,
     limit: initialPagination.limit,
@@ -41,6 +42,11 @@ export function LeadsView({
   const hasLoadedData = pagination.totalCount > 0;
   const displayLeads = hasLoadedData ? leads : initialLeads;
   const displayPagination = hasLoadedData ? pagination : initialPagination;
+
+  // Handle refresh after follow-up is sent
+  const handleLeadUpdate = () => {
+    refetch(); // Refresh the leads data
+  };
 
   return (
     <div className="space-y-6">
@@ -62,8 +68,12 @@ export function LeadsView({
         resetFilters={resetFilters}
       />
 
-      {/* Leads table */}
-      <LeadsTable leads={displayLeads} isLoading={isLoading} />
+      {/* Leads table with refresh callback */}
+      <LeadsTable
+        leads={displayLeads}
+        isLoading={isLoading}
+        onLeadUpdate={handleLeadUpdate}
+      />
 
       {/* Pagination */}
       <Pagination pagination={displayPagination} goToPage={goToPage} />

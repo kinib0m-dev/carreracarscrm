@@ -143,6 +143,7 @@ export function LeadsDetailLoader() {
       <Tabs defaultValue="emails" className="space-y-4">
         <TabsList>
           <TabsTrigger value="emails">Emails</TabsTrigger>
+          <TabsTrigger value="whatsapp">Whatsapp</TabsTrigger>
           <TabsTrigger value="notes">Notes</TabsTrigger>
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="tags">Tags</TabsTrigger>

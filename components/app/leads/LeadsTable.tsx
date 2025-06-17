@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 import { format } from "date-fns";
-import { Mail, MoreHorizontal, Phone } from "lucide-react";
+import { Mail, MessageCircle, MoreHorizontal, Phone } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,18 +22,80 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   daysSinceLastContact,
-  daysUntilNextFollowUp,
   formatTimeframe,
   getLeadStatusIndicator,
   getStatusBadgeClass,
   getTimeframeColor,
 } from "@/lib/leads/utils/lead-utils";
 import Link from "next/link";
+import { useState } from "react";
+import { toast } from "sonner";
+
+const FOLLOW_UP_CONFIG = {
+  ACTIVE_STATUSES: [
+    "nuevo",
+    "contactado",
+    "activo",
+    "calificado",
+    "propuesta",
+    "evaluando",
+  ],
+  MAX_FOLLOW_UPS: 3,
+};
 
 type LeadsTableProps = {
   leads: LeadWithTagsAndCampaign[];
   isLoading?: boolean;
+  onLeadUpdate?: () => void;
 };
+
+// Follow-up button component
+function FollowUpButton({
+  leadId,
+  onSuccess,
+}: {
+  leadId: string;
+  onSuccess?: () => void;
+}) {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSendFollowUp = async () => {
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`/api/leads/${leadId}/send-followup`, {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success("Follow-up sent successfully!");
+        onSuccess?.(); // Refresh the table data
+      } else {
+        toast.error(`Failed to send follow-up: ${data.error}`);
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      toast.error("Failed to send follow-up message");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={handleSendFollowUp}
+      disabled={isLoading}
+      className="flex items-center space-x-1"
+    >
+      <MessageCircle className="w-4 h-4" />
+      <span>{isLoading ? "Sending..." : "Follow-up"}</span>
+    </Button>
+  );
+}
 
 // Helper function to format follow-up date with time
 const formatFollowUpDate = (date: Date | null) => {
@@ -92,7 +154,11 @@ const formatFollowUpDate = (date: Date | null) => {
   }
 };
 
-export function LeadsTable({ leads, isLoading = false }: LeadsTableProps) {
+export function LeadsTable({
+  leads,
+  isLoading = false,
+  onLeadUpdate,
+}: LeadsTableProps) {
   if (isLoading) {
     return <div className="p-8 text-center">Loading leads...</div>;
   }
@@ -129,6 +195,12 @@ export function LeadsTable({ leads, isLoading = false }: LeadsTableProps) {
 
             const followUpInfo = formatFollowUpDate(lead.nextFollowUpDate);
 
+            // Check if we can send follow-up
+            const canSendFollowUp =
+              FOLLOW_UP_CONFIG.ACTIVE_STATUSES.includes(lead.status) &&
+              (lead.followUpCount || 0) < FOLLOW_UP_CONFIG.MAX_FOLLOW_UPS &&
+              lead.phone;
+
             return (
               <TableRow key={lead.id}>
                 <TableCell>
@@ -164,124 +236,113 @@ export function LeadsTable({ leads, isLoading = false }: LeadsTableProps) {
                 <TableCell>
                   <div className="flex flex-col text-sm">
                     {lead.email && (
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <Mail className="h-3 w-3" />
-                        {lead.email}
+                      <div className="flex items-center gap-1">
+                        <Mail className="h-3 w-3 text-gray-400" />
+                        <span className="text-xs text-gray-600">
+                          {lead.email}
+                        </span>
                       </div>
                     )}
                     {lead.phone && (
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <Phone className="h-3 w-3" />
-                        {lead.phone}
+                      <div className="flex items-center gap-1">
+                        <Phone className="h-3 w-3 text-gray-400" />
+                        <span className="text-xs text-gray-600">
+                          {lead.phone}
+                        </span>
                       </div>
-                    )}
-                    {!lead.email && !lead.phone && (
-                      <span className="text-muted-foreground italic">
-                        No contact info
-                      </span>
                     )}
                   </div>
                 </TableCell>
                 <TableCell>
                   <Badge className={getStatusBadgeClass(color)}>
-                    {lead.status
-                      .replace(/_/g, " ")
-                      .replace(/\b\w/g, (c) => c.toUpperCase())}
+                    {lead.status}
+                  </Badge>
+                  {(lead.followUpCount || 0) > 0 && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      Follow-ups: {lead.followUpCount}/
+                      {FOLLOW_UP_CONFIG.MAX_FOLLOW_UPS}
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <span className="text-sm">
+                    {lead.campaignName || "No campaign"}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <Badge className={getStatusBadgeClass(timeframeColor)}>
+                    {formatTimeframe(lead.expectedPurchaseTimeframe)}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  {lead.campaignName ? (
-                    <span>{lead.campaignName}</span>
-                  ) : (
-                    <span className="text-muted-foreground text-xs">None</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {lead.expectedPurchaseTimeframe ? (
-                    <Badge className={getStatusBadgeClass(timeframeColor)}>
-                      {formatTimeframe(lead.expectedPurchaseTimeframe)}
-                    </Badge>
-                  ) : (
-                    <span className="text-muted-foreground text-xs">
-                      No definido
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {lead.lastContactedAt ? (
-                    <div>
-                      <div>
-                        {format(new Date(lead.lastContactedAt), "MMM d, yyyy")}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {daysSinceLastContact(lead)} days ago
-                      </div>
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground text-xs">Never</span>
-                  )}
+                  <div className="text-sm">
+                    {lead.lastContactedAt ? (
+                      <>
+                        <span className="text-gray-900">
+                          {format(
+                            new Date(lead.lastContactedAt),
+                            "MMM d, HH:mm"
+                          )}
+                        </span>
+                        <div className="text-xs text-gray-500">
+                          {daysSinceLastContact(lead)} days ago
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-gray-400">Never</span>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   {followUpInfo ? (
-                    <div className="space-y-1">
-                      <div
-                        className={`text-sm font-medium ${
+                    <div className="text-sm">
+                      <span
+                        className={`font-medium ${
                           followUpInfo.isOverdue
-                            ? "text-red-600 dark:text-red-400"
+                            ? "text-red-600"
                             : followUpInfo.isUrgent
-                              ? "text-amber-600 dark:text-amber-400"
-                              : ""
+                              ? "text-orange-600"
+                              : "text-gray-900"
                         }`}
                       >
                         {followUpInfo.dateLabel}
+                      </span>
+                      <div className="text-xs text-gray-500">
+                        {followUpInfo.timeLabel}
+                        {followUpInfo.isOverdue && " (Overdue)"}
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Badge
-                          variant={
-                            followUpInfo.isOverdue ? "destructive" : "outline"
-                          }
-                          className="text-xs"
-                        >
-                          {followUpInfo.timeLabel}
-                        </Badge>
-                        {followUpInfo.isOverdue && (
-                          <Badge variant="destructive" className="text-xs">
-                            Overdue
-                          </Badge>
-                        )}
-                      </div>
-                      {!followUpInfo.isUrgent && (
-                        <div className="text-xs text-muted-foreground">
-                          In {daysUntilNextFollowUp(lead)} days
-                        </div>
-                      )}
                     </div>
                   ) : (
-                    <span className="text-muted-foreground text-xs">
-                      Not scheduled
+                    <span className="text-gray-400 text-sm">
+                      No follow-up scheduled
                     </span>
                   )}
                 </TableCell>
                 <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Actions</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem asChild>
-                        <Link href={`/leads/${lead.id}`}>View Details</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href={`/leads/${lead.id}/edit`}>Edit Lead</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href={`/leads/${lead.id}/notes`}>Add Note</Link>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <div className="flex justify-end space-x-2">
+                    {canSendFollowUp && (
+                      <FollowUpButton
+                        leadId={lead.id}
+                        onSuccess={onLeadUpdate}
+                      />
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <Link href={`/leads/${lead.id}`}>View details</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href={`/leads/${lead.id}/edit`}>Edit lead</Link>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </TableCell>
               </TableRow>
             );

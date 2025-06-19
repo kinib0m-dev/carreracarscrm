@@ -69,13 +69,15 @@ export interface CarStock {
 export interface WhatsAppMessageRecord {
   id: string;
   leadId: string;
-  whatsappMessageId?: string | null;
+  whatsappMessageId: string | null;
   direction: "inbound" | "outbound";
+  messageType: string; // Added this field
   content: string;
   phoneNumber: string;
-  whatsappTimestamp: Date;
+  whatsappTimestamp: Date | null;
   status: string;
-  metadata?: string | undefined;
+  errorMessage: string | null; // Added this field
+  metadata: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

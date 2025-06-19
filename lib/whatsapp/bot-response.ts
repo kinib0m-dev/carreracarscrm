@@ -11,7 +11,7 @@ import type {
   RelevantCar,
   LeadUpdate,
 } from "@/types/bot";
-import type { Lead } from "@/types/database";
+import type { Lead, WhatsAppMessageRecord } from "@/types/database";
 
 const model = googleAI.getGenerativeModel({ model: "gemini-2.0-flash-001" });
 
@@ -290,7 +290,8 @@ export async function generateWhatsAppBotResponse(
     const conversationHistory = await getConversationHistory(leadId, 15);
 
     // Extract car context from conversation
-    const carContext = await extractCarContext(conversationHistory);
+    const convertedHistory = convertToConversationHistory(conversationHistory);
+    const carContext = await extractCarContext(convertedHistory);
 
     // Check for manager escalation triggers FIRST
     const conversationText = conversationHistory.map((msg) => msg.content);
@@ -702,3 +703,13 @@ export async function generateWhatsAppBotResponse(
 
 // Export the helper functions for use in the webhook
 export { saveCarContextToMessage, shouldEscalateToManager };
+
+function convertToConversationHistory(
+  whatsappMessages: WhatsAppMessageRecord[]
+): ConversationHistoryMessage[] {
+  return whatsappMessages.map((msg) => ({
+    role: msg.direction === "inbound" ? "user" : "model",
+    content: msg.content,
+    metadata: msg.metadata || undefined, // Convert null to undefined
+  }));
+}

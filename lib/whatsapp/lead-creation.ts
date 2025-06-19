@@ -94,21 +94,11 @@ export async function sendWelcomeMessageToLead(
       sentMessage = await whatsappBotAPI.sendTemplateMessage(
         formattedPhone,
         "welcome_message", // Your template name
-        "es",
-        [
-          {
-            type: "body",
-            parameters: [
-              {
-                type: "text",
-                text: firstName,
-              },
-            ],
-          },
-        ]
+        "es_ES",
+        []
       );
 
-      messageContent = `Hola ${firstName}! Soy Pedro de Carrera Cars. ¿Estás buscando algún vehículo en especial o solo estás viendo opciones?`;
+      messageContent = `Hola! Soy Pedro de Carrera Cars. ¿Estás buscando algún vehículo en especial o solo estás viendo opciones?`;
       messageType = "template";
       metadata.templateName = "welcome_message";
       metadata.templateLanguage = "es";

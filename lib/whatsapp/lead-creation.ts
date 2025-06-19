@@ -78,7 +78,7 @@ export async function sendWelcomeMessageToLead(
     // Send TEMPLATE message instead of text message
     const sentMessage = await whatsappBotAPI.sendTemplateMessage(
       formattedPhone,
-      "welcome_message", // This must match your approved template name
+      "welcome_message", // Your template name
       "es",
       [
         {
@@ -86,7 +86,7 @@ export async function sendWelcomeMessageToLead(
           parameters: [
             {
               type: "text",
-              text: firstName, // This replaces {{1}} in your template
+              text: firstName, // This should map to {{customer_first_name}}
             },
           ],
         },

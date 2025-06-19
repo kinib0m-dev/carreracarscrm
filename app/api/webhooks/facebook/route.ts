@@ -47,7 +47,6 @@ export async function POST(request: Request) {
       for (const entry of body.entry) {
         for (const change of entry.changes) {
           if (change.field === "leadgen" && change.value) {
-            // Process the lead
             console.log(change.value);
             await processFacebookLead(change.value);
           }
@@ -59,16 +58,13 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Error processing webhook:", error);
 
-    // Log the error
-    if (request.body) {
-      const bodyText = await request.text();
-      await db.insert(webhookLogs).values({
-        eventType: "facebook_lead_error",
-        payload: bodyText,
-        status: "failed",
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
+    // Don't try to read request.body again since it's already been read
+    await db.insert(webhookLogs).values({
+      eventType: "facebook_lead_error",
+      payload: "Error parsing body",
+      status: "failed",
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     return NextResponse.json(
       { error: "Failed to process webhook" },

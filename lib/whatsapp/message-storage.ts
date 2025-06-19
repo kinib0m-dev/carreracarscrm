@@ -7,10 +7,12 @@ interface SaveMessageParams {
   leadId: string;
   whatsappMessageId?: string;
   direction: "inbound" | "outbound";
+  messageType?: string; // Added this field to match the database schema
   content: string;
   phoneNumber: string;
   whatsappTimestamp?: Date;
   status?: string;
+  errorMessage?: string; // Added this field to match the database schema
   metadata?: Record<string, unknown>;
 }
 
@@ -27,10 +29,12 @@ export async function saveWhatsAppMessage(
         leadId: params.leadId,
         whatsappMessageId: params.whatsappMessageId,
         direction: params.direction,
+        messageType: params.messageType || "text", // Default to "text" if not provided
         content: params.content,
         phoneNumber: params.phoneNumber,
         whatsappTimestamp: params.whatsappTimestamp || new Date(),
         status: params.status || "sent",
+        errorMessage: params.errorMessage,
         metadata: params.metadata ? JSON.stringify(params.metadata) : null,
       })
       .returning();
@@ -70,13 +74,15 @@ export async function getConversationHistory(
  */
 export async function updateMessageStatus(
   whatsappMessageId: string,
-  status: string
+  status: string,
+  errorMessage?: string
 ): Promise<void> {
   try {
     await db
       .update(whatsappMessages)
       .set({
         status,
+        errorMessage,
         updatedAt: new Date(),
       })
       .where(eq(whatsappMessages.whatsappMessageId, whatsappMessageId));
@@ -107,29 +113,78 @@ export async function getLastMessageForLead(
 }
 
 /**
- * Get follow-up messages sent to a lead
+ * Get total message count for a lead
  */
-export async function getFollowUpMessagesForLead(
-  leadId: string
+export async function getMessageCountForLead(leadId: string): Promise<number> {
+  try {
+    const result = await db
+      .select()
+      .from(whatsappMessages)
+      .where(eq(whatsappMessages.leadId, leadId));
+
+    return result.length;
+  } catch (error) {
+    console.error("Error getting message count for lead:", error);
+    return 0;
+  }
+}
+
+/**
+ * Get messages by status (useful for retry logic)
+ */
+export async function getMessagesByStatus(
+  status: string,
+  limit: number = 50
 ): Promise<WhatsAppMessageRecord[]> {
   try {
     const messages = await db
       .select()
       .from(whatsappMessages)
-      .where(eq(whatsappMessages.leadId, leadId))
-      .orderBy(desc(whatsappMessages.createdAt));
+      .where(eq(whatsappMessages.status, status))
+      .orderBy(desc(whatsappMessages.createdAt))
+      .limit(limit);
 
-    // Filter messages that have follow-up metadata
-    return (messages as WhatsAppMessageRecord[]).filter((msg) => {
-      try {
-        const metadata = msg.metadata ? JSON.parse(msg.metadata) : {};
-        return metadata.isFollowUp === true;
-      } catch {
-        return false;
-      }
-    });
+    return messages as WhatsAppMessageRecord[];
   } catch (error) {
-    console.error("Error getting follow-up messages for lead:", error);
+    console.error("Error getting messages by status:", error);
     return [];
   }
+}
+
+/**
+ * Save a template message with specific metadata
+ */
+export async function saveTemplateMessage(params: {
+  leadId: string;
+  whatsappMessageId: string;
+  templateName: string;
+  templateLanguage: string;
+  templateComponents?: Array<{
+    type: "header" | "body" | "button";
+    parameters?: Array<{ type: "text"; text: string }>;
+  }>;
+  content: string;
+  phoneNumber: string;
+  status?: string;
+  sentByUser?: string;
+}): Promise<WhatsAppMessageRecord> {
+  const metadata = {
+    templateName: params.templateName,
+    templateLanguage: params.templateLanguage,
+    templateComponents: params.templateComponents,
+    sentByUser: params.sentByUser,
+    isTemplateMessage: true,
+    timestamp: new Date().toISOString(),
+  };
+
+  return saveWhatsAppMessage({
+    leadId: params.leadId,
+    whatsappMessageId: params.whatsappMessageId,
+    direction: "outbound",
+    messageType: "template",
+    content: params.content,
+    phoneNumber: params.phoneNumber,
+    status: params.status || "sent",
+    metadata,
+  });
 }

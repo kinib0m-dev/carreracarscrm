@@ -36,6 +36,7 @@ export async function createLeadWithWhatsApp({
     if (existingLead.length > 0) {
       return existingLead[0];
     }
+
     // Create new lead
     const [newLead] = await db
       .insert(leads)
@@ -50,10 +51,12 @@ export async function createLeadWithWhatsApp({
         updatedAt: new Date(),
       })
       .returning();
+
     // Send welcome message if requested and phone is provided
     if (sendWelcomeMessage && phone) {
       await sendWelcomeMessageToLead(newLead.id, phone, name);
     }
+
     return newLead;
   } catch (error) {
     console.error("Error creating lead with WhatsApp:", error);
@@ -63,6 +66,7 @@ export async function createLeadWithWhatsApp({
 
 /**
  * Sends a welcome message to a lead and updates their status
+ * Uses fallback strategy: Template first, then regular text message
  */
 export async function sendWelcomeMessageToLead(
   leadId: string,
@@ -75,23 +79,64 @@ export async function sendWelcomeMessageToLead(
     // Extract first name
     const firstName = name.trim().split(" ")[0];
 
-    // Send TEMPLATE message instead of text message
-    const sentMessage = await whatsappBotAPI.sendTemplateMessage(
-      formattedPhone,
-      "welcome_message", // Your template name
-      "es",
-      [
-        {
-          type: "body",
-          parameters: [
-            {
-              type: "text",
-              text: firstName, // This should map to {{customer_first_name}}
-            },
-          ],
-        },
-      ]
-    );
+    let sentMessage = null;
+    let messageContent = "";
+    let messageType = "text";
+    const metadata: Record<string, unknown> = {
+      isWelcomeMessage: true,
+      timestamp: new Date().toISOString(),
+    };
+
+    // Try template message first
+    try {
+      console.log(`Attempting to send template message to ${formattedPhone}`);
+
+      sentMessage = await whatsappBotAPI.sendTemplateMessage(
+        formattedPhone,
+        "welcome_message", // Your template name
+        "es",
+        [
+          {
+            type: "body",
+            parameters: [
+              {
+                type: "text",
+                text: firstName,
+              },
+            ],
+          },
+        ]
+      );
+
+      messageContent = `Hola ${firstName}! Soy Pedro de Carrera Cars. ¿Estás buscando algún vehículo en especial o solo estás viendo opciones?`;
+      messageType = "template";
+      metadata.templateName = "welcome_message";
+      metadata.templateLanguage = "es";
+
+      console.log("Template message sent successfully");
+    } catch (templateError) {
+      console.warn(
+        "Template message failed, falling back to text message:",
+        templateError
+      );
+
+      // Fallback to regular text message
+      messageContent = `Hola ${firstName}! Soy Pedro de Carrera Cars. ¿Estás buscando algún vehículo en especial o solo estás viendo opciones?`;
+
+      sentMessage = await whatsappBotAPI.sendBotMessage(
+        formattedPhone,
+        messageContent
+      );
+
+      messageType = "text";
+      metadata.fallbackFromTemplate = true;
+      metadata.templateError =
+        templateError instanceof Error
+          ? templateError.message
+          : String(templateError);
+
+      console.log("Fallback text message sent successfully");
+    }
 
     // Save the message to database
     if (sentMessage?.messages?.[0]) {
@@ -99,14 +144,11 @@ export async function sendWelcomeMessageToLead(
         leadId,
         whatsappMessageId: sentMessage.messages[0].id,
         direction: "outbound",
-        content: `Hola ${firstName}! Soy Pedro de Carrera Cars. ¿Estás buscando algún vehículo en especial o solo estás viendo opciones?`,
+        content: messageContent,
         phoneNumber: formattedPhone,
         status: "sent",
-        metadata: {
-          templateName: "welcome_message",
-          templateLanguage: "es",
-          isWelcomeMessage: true,
-        },
+        messageType,
+        metadata,
       });
     }
 
@@ -119,12 +161,12 @@ export async function sendWelcomeMessageToLead(
         updatedAt: new Date(),
       })
       .where(eq(leads.id, leadId));
+
+    console.log(`Welcome message sent successfully to lead ${leadId}`);
   } catch (error) {
-    console.error(
-      `Error sending welcome template message to lead ${leadId}:`,
-      error
-    );
+    console.error(`Error sending welcome message to lead ${leadId}:`, error);
     // Don't throw here to avoid breaking lead creation
+    // But we should log this for monitoring
   }
 }
 

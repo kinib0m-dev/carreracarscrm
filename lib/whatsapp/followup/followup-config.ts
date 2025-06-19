@@ -1,6 +1,6 @@
 export const FOLLOW_UP_CONFIG = {
   // Message delay before sending (in milliseconds)
-  MESSAGE_DELAY: 15 * 1000, // 15 seconds
+  MESSAGE_DELAY: 15 * 1000, // 15 seconds (10 + Math.random() * 5) * 60 * 1000
 
   // Follow-up thresholds (in milliseconds)
   FOLLOW_UP_THRESHOLD: 23 * 60 * 60 * 1000, // 23 hours
@@ -11,34 +11,34 @@ export const FOLLOW_UP_CONFIG = {
   // Status-specific follow-up messages
   FOLLOW_UP_MESSAGES: {
     nuevo: [
-      "¡Hola! ¿Has podido ver mi mensaje anterior? ¿Te interesa algún vehículo?",
-      "Buenas, solo quería saber si sigues buscando coche. ¿En qué te puedo ayudar?",
-      "Hola de nuevo. Si ya no estás interesado, no pasa nada, solo dímelo.",
+      "¡Hola! Te escribo para saber si sigues buscando coche. ¿Hay algo en particular que te interese?",
+      "Buenas, vi que te registraste hace poco. ¿Hay algo en lo que te pueda ayudar para empezar?",
+      "Hola, solo quería confirmar si estás buscando vehículo. Estoy aquí para ayudarte si lo necesitas.",
     ],
     contactado: [
-      "¿Qué tal? ¿Has tenido tiempo de pensar en lo que hablamos?",
-      "¡Hola! ¿Sigues buscando vehículo? Tengo algunas opciones nuevas.",
-      "Buenas, por si acaso no te llegó mi mensaje anterior... ¿sigues interesado?",
+      "¿Qué tal? Solo quería saber si has podido pensar en lo que comentamos.",
+      "¡Hola! Por si acaso no viste el mensaje anterior, sigo aquí para ayudarte a encontrar el coche ideal.",
+      "Buenas, si sigues buscando coche, puedo mandarte algunas opciones nuevas que te podrían interesar.",
     ],
     activo: [
-      "¿Cómo va todo? ¿Has podido pensar en el presupuesto que comentamos?",
-      "¡Hola! ¿Sigues buscando? Me gustaría ayudarte a encontrar algo que te guste.",
-      "Buenas, solo para saber si sigues interesado o si ya has encontrado algo.",
+      "¿Cómo vas con la búsqueda? Si necesitas ayuda para decidir, dime y lo vemos juntos.",
+      "¡Hola! ¿Te gustaría que te mande más opciones según lo que hablamos?",
+      "Buenas, quería saber si sigues con interés en cambiar de coche o si ya encontraste algo.",
     ],
     calificado: [
-      "¿Qué tal? ¿Te gustaron las opciones que te enseñé?",
-      "¡Hola! ¿Has podido ver los coches que te comenté? ¿Te interesa alguno?",
-      "Buenas, solo quería saber si necesitas más información sobre algún vehículo.",
+      "¿Qué opinas de los modelos que te mandé? ¿Hay alguno que te haya gustado?",
+      "¡Hola! Si tienes dudas sobre alguno de los coches, dime y te lo explico mejor.",
+      "Buenas, ¿necesitas más detalles o fotos de alguno de los vehículos que vimos?",
     ],
     propuesta: [
-      "¿Has podido ver las fotos que te mandé? ¿Qué te parece?",
-      "¡Hola! ¿Te ha gustado alguno de los coches que vimos?",
-      "Buenas, ¿necesitas que te pase más información de algún vehículo?",
+      "¿Pudiste revisar la propuesta? Si hay algo que quieras ajustar, lo vemos.",
+      "¡Hola! ¿Qué te parecieron las opciones que te envié? ¿Alguna te llamó la atención?",
+      "Buenas, si quieres ver más alternativas o necesitas algo diferente, dime y te ayudo.",
     ],
     evaluando: [
-      "¿Cómo lo llevas? ¿Has decidido algo sobre los coches que vimos?",
-      "¡Hola! ¿Necesitas que te aclare algo más sobre algún vehículo?",
-      "Buenas, por si te sirve de ayuda, puedo organizarte una visita para verlos en persona.",
+      "¿Cómo vas con la decisión? Si necesitas un consejo, estoy aquí para ayudarte.",
+      "¡Hola! Si lo prefieres, puedo agendar una visita o videollamada para que veas los coches mejor.",
+      "Buenas, dime si hay algo que te ayude a decidir o si te paso más opciones.",
     ],
   } as Record<string, string[]>,
 

@@ -50,6 +50,39 @@ class WhatsAppBotAPI {
   }
 
   /**
+   * Send a template message via WhatsApp (for business-initiated conversations)
+   */
+  async sendTemplateMessage(
+    to: string,
+    templateName: string,
+    languageCode: string = "es",
+    components?: Array<{
+      type: "header" | "body" | "button";
+      parameters?: Array<{
+        type: "text";
+        text: string;
+      }>;
+    }>
+  ): Promise<WhatsAppAPIResponse> {
+    const formattedPhone = this.formatPhoneNumber(to);
+
+    const payload = {
+      messaging_product: "whatsapp",
+      to: formattedPhone,
+      type: "template",
+      template: {
+        name: templateName,
+        language: {
+          code: languageCode,
+        },
+        components: components || [],
+      },
+    };
+
+    return this.makeRequest("/messages", payload);
+  }
+
+  /**
    * Mark a message as read
    */
   async markAsRead(messageId: string): Promise<WhatsAppAPIResponse> {

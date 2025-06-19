@@ -22,7 +22,6 @@ export function FollowUpButton({ leadId }: FollowUpButtonProps) {
       const data = await response.json();
 
       if (data.success) {
-        // Show success message
         // Refresh the table data
         window.location.reload(); // Or use your preferred state management
       } else {

@@ -99,7 +99,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      message: "Follow-up sent successfully",
+      message: "Follow-up sent successfully!",
       followUpCount: newFollowUpCount,
     });
   } catch (error) {

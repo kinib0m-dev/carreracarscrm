@@ -74,12 +74,23 @@ export async function sendWelcomeMessageToLead(
     const formattedPhone = phone.startsWith("+") ? phone : `+${phone}`;
     // Extract first name
     const firstName = name.trim().split(" ")[0];
-    // Send welcome message
-    const welcomeMessage = `Hola ${firstName}! Soy Pedro de Carrera Cars. ¿Estás buscando algún vehículo en especial o solo estás viendo opciones?`;
 
-    const sentMessage = await whatsappBotAPI.sendBotMessage(
+    // Send TEMPLATE message instead of text message
+    const sentMessage = await whatsappBotAPI.sendTemplateMessage(
       formattedPhone,
-      welcomeMessage
+      "welcome_message", // This must match your approved template name
+      "es",
+      [
+        {
+          type: "body",
+          parameters: [
+            {
+              type: "text",
+              text: firstName, // This replaces {{1}} in your template
+            },
+          ],
+        },
+      ]
     );
 
     // Save the message to database
@@ -88,9 +99,14 @@ export async function sendWelcomeMessageToLead(
         leadId,
         whatsappMessageId: sentMessage.messages[0].id,
         direction: "outbound",
-        content: welcomeMessage,
+        content: `Hola ${firstName}! Soy Pedro de Carrera Cars. ¿Estás buscando algún vehículo en especial o solo estás viendo opciones?`,
         phoneNumber: formattedPhone,
         status: "sent",
+        metadata: {
+          templateName: "welcome_message",
+          templateLanguage: "es",
+          isWelcomeMessage: true,
+        },
       });
     }
 
@@ -104,7 +120,10 @@ export async function sendWelcomeMessageToLead(
       })
       .where(eq(leads.id, leadId));
   } catch (error) {
-    console.error(`Error sending welcome message to lead ${leadId}:`, error);
+    console.error(
+      `Error sending welcome template message to lead ${leadId}:`,
+      error
+    );
     // Don't throw here to avoid breaking lead creation
   }
 }
